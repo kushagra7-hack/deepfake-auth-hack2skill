@@ -313,7 +313,7 @@ _hf_client: Optional[HuggingFaceClient] = None
 async def get_hf_client() -> HuggingFaceClient:
     """Get or create Hugging Face client instance."""
     global _hf_client
-    if _hf_client is None:
+    if _hf_client is None: 
         _hf_client = HuggingFaceClient(settings.SUPABASE_ANON_KEY)
     await _hf_client._ensure_client()
     return _hf_client
