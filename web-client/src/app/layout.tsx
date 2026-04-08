@@ -1,9 +1,20 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Syne, Outfit } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
+import { ErrorBoundary } from '@/components/error-boundary'
 
-const inter = Inter({ subsets: ['latin'] })
+const syne = Syne({
+  subsets: ['latin'],
+  variable: '--font-syne',
+  display: 'swap',
+})
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Deepfake Authentication Gateway',
@@ -18,27 +29,29 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={inter.className}>
-        {children}
+    <html lang="en" className={`dark ${syne.variable} ${outfit.variable}`}>
+      <body className={`${outfit.className} bg-black text-white min-h-screen selection:bg-primary-500/30 selection:text-white antialiased`}>
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
         <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#1e293b',
+              background: '#000000',
               color: '#fff',
-              border: '1px solid #334155',
+              border: '1px solid #18181b',
             },
             success: {
               iconTheme: {
-                primary: '#22c55e',
+                primary: '#10b981', // emerald
                 secondary: '#fff',
               },
             },
             error: {
               iconTheme: {
-                primary: '#ef4444',
+                primary: '#e11d48', // rose/crimson
                 secondary: '#fff',
               },
             },

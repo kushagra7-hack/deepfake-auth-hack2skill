@@ -52,13 +52,6 @@ FILE_SIGNATURES: dict[tuple[bytes, ...], FileInfo] = {
         is_valid=True,
         description="MP4 video file (QuickTime)"
     ),
-    (b"\x52\x49\x46\x46",): FileInfo(
-        signature=FileSignature.WAV,
-        media_type="audio",
-        mime_type="audio/wav",
-        is_valid=True,
-        description="WAV/AVI RIFF container"
-    ),
     (b"\x1a\x45\xdf\xa3",): FileInfo(
         signature=FileSignature.WEBM,
         media_type="video",
@@ -107,13 +100,6 @@ FILE_SIGNATURES: dict[tuple[bytes, ...], FileInfo] = {
         mime_type="image/gif",
         is_valid=True,
         description="GIF image file"
-    ),
-    (b"\x52\x49\x46\x46",): FileInfo(
-        signature=FileSignature.WEBP,
-        media_type="image",
-        mime_type="image/webp",
-        is_valid=True,
-        description="WebP image (RIFF container)"
     ),
     (b"\x42\x4d",): FileInfo(
         signature=FileSignature.BMP,

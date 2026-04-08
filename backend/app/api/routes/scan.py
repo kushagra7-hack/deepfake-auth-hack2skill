@@ -117,11 +117,22 @@ async def create_scan(
     
     logger.info(f"User {user_id} starting scan for file: {filename}")
     
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds maximum size of {MAX_UPLOAD_SIZE / (1024**2):.1f}MB"
+        )
+    
     try:
         file_chunks = []
         total_size = 0
         
-        async for chunk in file.file:
+        while True:
+            chunk = await file.read(1024 * 1024)  # 1MB chunks
+            if not chunk:
+                break
+                
             total_size += len(chunk)
             
             if total_size > MAX_UPLOAD_SIZE:
@@ -177,31 +188,33 @@ async def create_scan(
     file_hash = generate_file_hash(file_bytes)
     logger.debug(f"Generated hash for {filename}: {file_hash[:16]}...")
     
-    try:
-        existing_scan = await check_hash_exists(file_hash, user_id)
-        
-        if existing_scan and existing_scan.get("threat_score") is not None:
-            logger.info(
-                f"Returning cached result for {filename} "
-                f"(hash={file_hash[:16]}..., score={existing_scan.get('threat_score')})"
-            )
-            
-            return ScanResponse(
-                id=existing_scan.get("id"),
-                user_id=user_id,
-                file_name=filename,
-                file_hash=file_hash,
-                threat_score=Decimal(str(existing_scan.get("threat_score", 0))),
-                status=ScanStatus.COMPLETED,
-                media_type=file_info.media_type,
-                file_size=total_size,
-                result_details=existing_scan.get("result_details"),
-                created_at=existing_scan.get("created_at"),
-                completed_at=existing_scan.get("created_at"),
-            )
-            
-    except DatabaseError as e:
-        logger.error(f"Database error during deduplication check: {e}")
+    # Bypass deduplication cache – always perform fresh analysis
+    # The following block is intentionally disabled to force full AI pipeline on every upload.
+    # try:
+    #     existing_scan = await check_hash_exists(file_hash, user_id)
+    #
+    #     if existing_scan and existing_scan.get("threat_score") is not None:
+    #         logger.info(
+    #             f"Returning cached result for {filename} "
+    #             f"(hash={file_hash[:16]}..., score={existing_scan.get('threat_score')})"
+    #         )
+    #
+    #         return ScanResponse(
+    #             id=existing_scan.get("id"),
+    #             user_id=user_id,
+    #             file_name=filename,
+    #             file_hash=file_hash,
+    #             threat_score=Decimal(str(existing_scan.get("threat_score", 0))),
+    #             status=ScanStatus.COMPLETED,
+    #             media_type=file_info.media_type,
+    #             file_size=total_size,
+    #             result_details=existing_scan.get("result_details"),
+    #             created_at=existing_scan.get("created_at"),
+    #             completed_at=existing_scan.get("created_at"),
+    #         )
+    #
+    # except DatabaseError as e:
+    #     logger.error(f"Database error during deduplication check: {e}")
     
     pending_scan = None
     try:
@@ -219,63 +232,148 @@ async def create_scan(
     except DatabaseError as e:
         logger.error(f"Failed to create pending scan: {e}")
     
+    # ─────────────────────────────────────────────────────────────────────
+    # TIER-1 ── HuggingFace Mathematical Pre-Screen
+    # ─────────────────────────────────────────────────────────────────────
+    # ZERO-TRUST MODE: The HF score is recorded as context but can NO LONGER
+    # unilaterally approve a payload.  ALL image payloads proceed to Tier-2.
+    # (Non-image types still use the HF score as the sole signal.)
+    # ─────────────────────────────────────────────────────────────────────
+
+    hf_score_normalized: float = 0.0
+    gemini_verdict: str = "AUTHENTIC"
+    gemini_reasoning: str = "Cleared by Tier 1 mathematical scan."
+    tier_used: int = 1
+    status_value = ScanStatus.COMPLETED
+    result_details: dict = {}
+
     try:
+        logger.info(f"[TIER-1] Dispatching '{filename}' to HuggingFace deepfake model …")
         analysis_result = await analyze_deepfake(file_bytes, file_info)
-        
-        threat_score = Decimal(str(round(analysis_result.probability_score, 2)))
-        status_value = ScanStatus.COMPLETED
-        
-        result_details = {
-            "is_deepfake": analysis_result.is_deepfake,
-            "confidence_level": analysis_result.confidence_level,
-            "model_used": analysis_result.model_used,
-            "processing_time_ms": analysis_result.processing_time_ms,
-            "raw_probability": float(analysis_result.probability_score),
-        }
-        
+
+        hf_score_normalized = analysis_result.probability_score / 100.0
         logger.info(
-            f"Analysis complete for {filename}: score={threat_score}%, "
-            f"deepfake={analysis_result.is_deepfake}, "
-            f"confidence={analysis_result.confidence_level}"
+            f"[TIER-1] Result for '{filename}': "
+            f"raw_score={analysis_result.probability_score:.4f}%, "
+            f"normalised={hf_score_normalized:.4f}, "
+            f"model={analysis_result.model_used}"
         )
-        
-    except HFTimeoutError as e:
-        logger.error(f"HuggingFace API timeout for {filename}: {e.message}")
-        threat_score = Decimal("0")
-        status_value = ScanStatus.FAILED
-        result_details = {
-            "error": "Analysis timeout",
-            "error_type": "timeout",
-            "message": e.message
-        }
-        
-    except HFAPIResponseError as e:
-        logger.error(f"HuggingFace API error for {filename}: {e.message}")
-        threat_score = Decimal("0")
-        status_value = ScanStatus.FAILED
-        result_details = {
-            "error": "Analysis failed",
-            "error_type": "api_error",
-            "status_code": e.status_code,
-            "message": e.message
-        }
-        
-    except HFAPIConnectionError as e:
-        logger.error(f"HuggingFace connection error for {filename}: {e.message}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Deepfake analysis service temporarily unavailable. Please try again."
-        )
-        
+
     except Exception as e:
-        logger.error(f"Unexpected error during analysis for {filename}: {e}")
-        threat_score = Decimal("0")
+        logger.error(f"[TIER-1] HuggingFace error for '{filename}': {e}")
+        # HF failed — set score to 1.0 so Gemini always fires
+        hf_score_normalized = 1.0
+        analysis_result = None
         status_value = ScanStatus.FAILED
-        result_details = {
-            "error": "Unexpected error",
-            "error_type": "internal",
-            "message": str(e)
-        }
+
+    # ─────────────────────────────────────────────────────────────────────
+    # TIER-2 ── Gemini Visual Forensics  [ZERO-TRUST: ALWAYS RUNS]
+    # ─────────────────────────────────────────────────────────────────────
+    if file_info.media_type == "image":
+        logger.info(
+            f"[SECURITY OVERRIDE] Bypassing Tier 1 threshold. "
+            f"Forcing Gemini visual artifact inspection on '{filename}'."
+        )
+        try:
+            from app.services.gemini_client import run_gemini_analysis
+            gemini_result = await run_gemini_analysis(file_bytes, hf_score_normalized)
+            gemini_verdict   = gemini_result.get("gemini_verdict", "AUTHENTIC")
+            gemini_reasoning = gemini_result.get("gemini_reasoning", "")
+            gemini_model_used   = gemini_result.get("gemini_model_used", "")
+            gemini_confidence   = gemini_result.get("gemini_confidence", None)
+            gemini_tier         = gemini_result.get("tier", "tier-2")
+            tier_used = 2
+            status_value = ScanStatus.COMPLETED
+            logger.info(
+                f"[TIER-2] Final verdict for '{filename}': "
+                f"{gemini_verdict} | model={gemini_model_used} | confidence={gemini_confidence}%"
+            )
+        except RuntimeError as gemini_err:
+            logger.warning(
+                f"[TIER-2] Gemini unavailable ({gemini_err}). "
+                f"Falling back to HF score only."
+            )
+            gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
+            gemini_reasoning = (
+                f"Tier 2 analysis unavailable. Verdict derived from Tier 1 score "
+                f"({hf_score_normalized * 100:.2f}%)."
+            )
+            gemini_model_used = ""
+            gemini_confidence = None
+            gemini_tier = "tier-1-fallback"
+            tier_used = 1
+    else:
+        # Video / audio: keep original threshold-based logic
+        HF_SUSPICION_THRESHOLD = 0.20
+        if hf_score_normalized >= HF_SUSPICION_THRESHOLD:
+            logger.info(
+                f"[TIER-2] Non-image score {hf_score_normalized:.4f} >= {HF_SUSPICION_THRESHOLD}. "
+                f"Escalating '{filename}' to Gemini ..."
+            )
+            try:
+                from app.services.gemini_client import run_gemini_analysis
+                gemini_result = await run_gemini_analysis(file_bytes, hf_score_normalized)
+                gemini_verdict      = gemini_result.get("gemini_verdict", "AUTHENTIC")
+                gemini_reasoning    = gemini_result.get("gemini_reasoning", "")
+                gemini_model_used   = gemini_result.get("gemini_model_used", "")
+                gemini_confidence   = gemini_result.get("gemini_confidence", None)
+                gemini_tier         = gemini_result.get("tier", "tier-2")
+                tier_used = 2
+            except RuntimeError as gemini_err:
+                logger.warning(f"[TIER-2] Gemini unavailable: {gemini_err}")
+                gemini_verdict    = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
+                gemini_reasoning  = f"Tier 2 unavailable. Score: {hf_score_normalized * 100:.2f}%."
+                gemini_model_used = ""
+                gemini_confidence = None
+                gemini_tier       = "tier-1-fallback"
+        else:
+            logger.info(
+                f"[TIER-1] Non-image score {hf_score_normalized:.4f} < {HF_SUSPICION_THRESHOLD}. "
+                f"Verdict: AUTHENTIC."
+            )
+            gemini_verdict    = "AUTHENTIC"
+            gemini_reasoning  = "Cleared by Tier 1 mathematical scan."
+            gemini_model_used = ""
+            gemini_confidence = None
+            gemini_tier       = "tier-1"
+
+    # ── Build final stats ─────────────────────────────────────────────────
+    if analysis_result is not None:
+        hf_is_deepfake = analysis_result.is_deepfake
+        hf_confidence = analysis_result.confidence_level
+        hf_model = analysis_result.model_used
+        hf_ms = analysis_result.processing_time_ms
+    else:
+        hf_is_deepfake = hf_score_normalized >= 0.5
+        hf_confidence = "low"
+        hf_model = "none"
+        hf_ms = 0.0
+
+    threat_score = Decimal(str(round(hf_score_normalized * 100, 2)))
+
+    result_details = {
+        # ── Tier metadata ─────────────────────────────────────────────────
+        "tier_used": tier_used,
+        # ── Tier-1 (HuggingFace) fields ───────────────────────────────────
+        "hf_score": float(hf_score_normalized),
+        "hf_score_pct": float(threat_score),
+        "is_deepfake": hf_is_deepfake,
+        "confidence_level": hf_confidence,
+        "model_used": hf_model,
+        "processing_time_ms": hf_ms,
+        # ── Tier-2 (NVIDIA NIM) fields — all 5 dashboard slots ────────────
+        "gemini_verdict": gemini_verdict,
+        "gemini_reasoning": gemini_reasoning,
+        "gemini_model_used": gemini_model_used,   # "meta/llama-3.2-90b-vision-instruct"
+        "gemini_confidence": gemini_confidence,   # float 0-100 from logprobs
+        "gemini_tier": gemini_tier,               # "tier-2" / "tier-1" / "tier-1-fallback"
+    }
+
+    logger.info(
+        f"[GATEWAY] '{filename}' FINAL: threat={threat_score}%, "
+        f"gemini_verdict={gemini_verdict}, tier={tier_used}"
+    )
+
     
     try:
         if pending_scan:
@@ -283,7 +381,11 @@ async def create_scan(
                 scan_id=pending_scan.get("id"),
                 status=status_value,
                 threat_score=threat_score,
-                result_details=result_details
+                result_details=result_details,
+                file_name=filename,
+                file_hash=file_hash,
+                media_type=file_info.media_type,
+                file_size=total_size,
             )
         else:
             updated_scan = await log_scan(

@@ -25,17 +25,20 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     ENVIRONMENT: Literal["development", "staging", "production"] = "production"
     
-    SUPABASE_URL: str = Field(..., description="Supabase project URL")
-    SUPABASE_ANON_KEY: str = Field(..., description="Supabase anonymous key")
+    SUPABASE_URL: str = Field(default="", description="Supabase project URL")
+    SUPABASE_ANON_KEY: str = Field(default="", description="Supabase anonymous key")
     SUPABASE_SERVICE_ROLE_KEY: str = Field(..., description="Supabase service role key")
     SUPABASE_JWT_SECRET: str = Field(..., description="Supabase JWT secret for token verification")
+    HUGGINGFACE_API_KEY: str = Field(..., description="Hugging Face Inference API key")
+    GEMINI_API_KEY: str = Field(default="", description="Google Gemini API key for Tier-2 deepfake analysis")
+    NVIDIA_API_KEY: str = Field(default="", description="NVIDIA API key for Tier-2 deepfake analysis")
     
     DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
     
     JWT_AUDIENCE: str = "authenticated"
     JWT_ALGORITHM: str = "HS256"
     
-    MAX_FILE_SIZE: int = Field(default=5368709120, description="Max upload size in bytes (5GB)")
+    MAX_FILE_SIZE: int = Field(default=104857600, description="Max upload size in bytes (100MB)")
     ALLOWED_EXTENSIONS: str = ".mp4,.avi,.mov,.webm,.mkv,.wav,.mp3,.flac,.ogg,.png,.jpg,.jpeg,.gif,.webp,.bmp"
     
     SCAN_TIMEOUT: int = Field(default=300, description="Scan processing timeout in seconds")
@@ -45,7 +48,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = Field(default=100, description="Requests per minute per IP")
     RATE_LIMIT_ENABLED: bool = True
     
-    CORS_ORIGINS: str = "*"
+    CORS_ORIGINS: str = "http://localhost:3000"
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: str = "*"
     CORS_ALLOW_HEADERS: str = "*"

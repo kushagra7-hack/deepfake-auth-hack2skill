@@ -1,40 +1,67 @@
 'use client'
 
-import React, { Suspense, lazy } from 'react'
+import React from 'react'
+import { motion } from 'framer-motion'
 
-const Spline = lazy(() => import('@splinetool/react-spline'))
-
-export function HeroSplineBackground() {
+export function GlobalAnimatedBackground() {
   return (
-    <div style={{ 
-      position: 'relative', 
-      width: '100%', 
-      height: '100vh', 
-      pointerEvents: 'auto', 
-      overflow: 'hidden',
-    }}>
-      <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-black" />}>
-        <Spline
-          style={{ 
-            width: '100%', 
-            height: '100vh', 
-            pointerEvents: 'auto',
+    <div className="absolute inset-0 pointer-events-none overflow-hidden bg-black">
+      {/* Dark OLED Base */}
+      <div className="absolute inset-0 bg-black z-0" />
+      
+      {/* Animated Aurora / Mesh Gradients */}
+      <div className="absolute inset-0 z-0 opacity-40">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.2, 0.4, 0.2],
+            x: [0, 100, 0],
+            y: [0, -50, 0],
           }}
-          scene="https://prod.spline.design/us3ALejTXl6usHZ7/scene.splinecode"
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute top-[10%] left-[10%] w-[40vw] h-[40vw] bg-indigo-900/40 blur-[120px] rounded-full mix-blend-screen"
         />
-      </Suspense>
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100vh',
-          background: `linear-gradient(to right, rgba(0, 0, 0, 0.8), transparent 30%, transparent 70%, rgba(0, 0, 0, 0.8)),
-                       linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.9))`,
-          pointerEvents: 'none',
-        }}
-      />
+        <motion.div
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.15, 0.3, 0.15],
+            x: [0, -100, 0],
+            y: [0, 50, 0],
+          }}
+          transition={{
+            duration: 18,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute top-[30%] right-[10%] w-[40vw] h-[40vw] bg-purple-900/40 blur-[120px] rounded-full mix-blend-screen"
+        />
+        <motion.div
+          animate={{
+            scale: [1, 1.1, 1],
+            opacity: [0.1, 0.2, 0.1],
+            x: [0, 50, 0],
+            y: [0, 100, 0],
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute bottom-[20%] left-[30%] w-[45vw] h-[45vw] bg-emerald-900/10 blur-[100px] rounded-full mix-blend-screen"
+        />
+      </div>
+
+      {/* Grid overlay */}
+      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.15] mix-blend-overlay z-0" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px] z-0" />
+
+      {/* Vignette fade around the edges, no hard cuts */}
+      <div className="absolute inset-0 pointer-events-none z-10 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.8)_120%)]" />
     </div>
   )
 }
+

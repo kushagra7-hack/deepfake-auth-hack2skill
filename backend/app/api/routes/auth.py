@@ -4,7 +4,7 @@ Handles user authentication, profile management, and session operations.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -345,6 +345,7 @@ async def request_password_reset(request_data: PasswordResetRequest) -> dict[str
 async def update_password(
     request_data: PasswordUpdateRequest,
     user_id: CurrentUserId,
+    user_email: CurrentUserEmail,
     _: ValidatedUser,
 ) -> dict[str, str]:
     """
@@ -357,6 +358,18 @@ async def update_password(
         
         client = await get_supabase_client()
         
+        # Verify current password
+        auth_result = await client.auth.sign_in_with_password({
+            "email": user_email,
+            "password": request_data.current_password
+        })
+        
+        if auth_result.user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid current password"
+            )
+            
         await client.auth.update_user({
             "password": request_data.new_password
         })
@@ -365,6 +378,8 @@ async def update_password(
         
         return {"message": "Password updated successfully"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Password update error: {e}")
         raise HTTPException(
@@ -415,7 +430,7 @@ async def get_current_profile(
             email=user_email,
             full_name=None,
             role="user",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             is_active=True,
         )
         
@@ -426,7 +441,7 @@ async def get_current_profile(
             email=user_email,
             full_name=None,
             role="user",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             is_active=True,
         )
 
@@ -459,7 +474,7 @@ async def update_profile(
         update_dict = {}
         if update_data.full_name is not None:
             update_dict["full_name"] = update_data.full_name
-            update_dict["updated_at"] = datetime.utcnow().isoformat()
+            update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
         
         if update_dict:
             result = await client.table("users").update(update_dict).eq("id", user_id).execute()

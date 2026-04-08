@@ -7,7 +7,7 @@ import { getScans, getScanStats, uploadScan, type ScanResponse, type ScanStatsRe
 import toast from 'react-hot-toast'
 import UploadZone from '@/components/upload-zone'
 import ThreatChart from '@/components/threat-chart'
-import { HeroSplineBackground } from '@/components/ui/spline-background'
+import { GlobalAnimatedBackground } from '@/components/ui/spline-background'
 import { ParallaxScrollFeatureSection } from '@/components/ui/parallax-scroll-feature-section'
 
 function formatDate(dateString: string): string {
@@ -37,6 +37,21 @@ function getThreatLevel(score: number | string | null | undefined): { label: str
   if (numScore >= 70) return { label: 'Critical', color: 'text-rose-500 drop-shadow-[0_0_8px_rgba(225,29,72,0.5)]' }
   if (numScore >= 30) return { label: 'Elevated', color: 'text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' }
   return { label: 'Secure', color: 'text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]' }
+}
+
+function getGeminiVerdictBadge(verdict: string | undefined | null) {
+  if (!verdict) return null
+  const isDeepfake = verdict === 'DEEPFAKE'
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border ${
+      isDeepfake
+        ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_8px_rgba(225,29,72,0.15)]'
+        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.15)]'
+    }`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${isDeepfake ? 'bg-rose-400' : 'bg-emerald-400'} animate-pulse`} />
+      {verdict}
+    </span>
+  )
 }
 
 export default function DashboardPage() {
@@ -134,7 +149,7 @@ export default function DashboardPage() {
     <div className="min-h-screen relative">
       {/* Background Spline Animation */}
       <div className="fixed inset-0 z-0 opacity-80">
-        <HeroSplineBackground />
+        <GlobalAnimatedBackground />
       </div>
 
       <header className="sticky top-0 z-50 bg-black/50 backdrop-blur-xl border-b border-white/5">
@@ -166,7 +181,7 @@ export default function DashboardPage() {
         {stats && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group animate-cinematic-entrance" style={{ animationDelay: '0.1s' }}>
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 </div>
@@ -174,7 +189,7 @@ export default function DashboardPage() {
                 <p className="text-4xl font-display font-light text-white tracking-tight relative z-10">{stats.total_scans}</p>
               </div>
 
-              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group animate-cinematic-entrance" style={{ animationDelay: '0.2s' }}>
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-amber-500">
                   <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 </div>
@@ -182,7 +197,7 @@ export default function DashboardPage() {
                 <p className="text-4xl font-display font-light text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] tracking-tight relative z-10">{stats.pending_scans}</p>
               </div>
 
-              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group animate-cinematic-entrance" style={{ animationDelay: '0.3s' }}>
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-emerald-500">
                   <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 </div>
@@ -190,7 +205,7 @@ export default function DashboardPage() {
                 <p className="text-4xl font-display font-light text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] tracking-tight relative z-10">{stats.completed_scans}</p>
               </div>
 
-              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group animate-cinematic-entrance" style={{ animationDelay: '0.4s' }}>
                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent pointer-events-none"></div>
                 <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 relative z-10">Global Threat Index</p>
                 <div className="flex items-baseline space-x-1 relative z-10">
@@ -200,7 +215,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mb-10 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <div className="mb-10 animate-cinematic-entrance" style={{ animationDelay: '0.5s' }}>
               <div className="glass-panel p-6 rounded-2xl border-white/5">
                 <ThreatChart stats={stats} />
               </div>
@@ -209,11 +224,11 @@ export default function DashboardPage() {
         )}
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-10">
-          <div className="xl:col-span-1 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+          <div className="xl:col-span-1 animate-cinematic-entrance" style={{ animationDelay: '0.6s' }}>
             <UploadZone onUpload={handleUpload} />
           </div>
 
-          <div className="xl:col-span-2 glass-panel rounded-2xl overflow-hidden animate-fade-up flex flex-col" style={{ animationDelay: '0.3s' }}>
+          <div className="xl:col-span-2 glass-panel rounded-2xl overflow-hidden animate-cinematic-entrance flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="px-6 py-5 border-b border-white/5 bg-black/20 flex justify-between items-center">
               <div>
                 <h2 className="text-sm font-semibold tracking-widest uppercase text-white font-display">Analysis Log</h2>
@@ -240,6 +255,7 @@ export default function DashboardPage() {
                       <th className="px-6 py-4 font-semibold">Payload ID</th>
                       <th className="px-6 py-4 font-semibold">Status</th>
                       <th className="px-6 py-4 font-semibold text-center">Threat Level</th>
+                      <th className="px-6 py-4 font-semibold text-center">Gemini</th>
                       <th className="px-6 py-4 font-semibold">Type</th>
                       <th className="px-6 py-4 font-semibold text-right">Timestamp</th>
                     </tr>
@@ -247,8 +263,13 @@ export default function DashboardPage() {
                   <tbody className="divide-y divide-white/5">
                     {scans.map((scan) => {
                       const threatLevel = getThreatLevel(scan.threat_score)
+                      const geminiVerdict = scan.result_details?.gemini_verdict
                       return (
-                        <tr key={scan.id} className="hover:bg-white/[0.02] transition-colors group">
+                        <tr
+                          key={scan.id}
+                          onClick={() => router.push(`/dashboard/${scan.id}`)}
+                          className="hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                        >
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-4">
                               <div className="flex-shrink-0 text-zinc-500 group-hover:text-white transition-colors">
@@ -256,7 +277,7 @@ export default function DashboardPage() {
                                 {scan.media_type === 'video' && <svg className="w-5 h-5 text-zinc-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
                                 {scan.media_type === 'audio' && <svg className="w-5 h-5 text-zinc-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>}
                               </div>
-                              <span className="text-white font-medium text-sm truncate max-w-[200px]">{scan.file_name}</span>
+                              <span className="text-white font-medium text-sm truncate max-w-[180px]">{scan.file_name}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -275,6 +296,12 @@ export default function DashboardPage() {
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            {geminiVerdict
+                              ? getGeminiVerdictBadge(geminiVerdict)
+                              : <span className="text-zinc-600 text-[10px] uppercase tracking-widest">—</span>
+                            }
                           </td>
                           <td className="px-6 py-4 text-zinc-400 text-xs font-semibold uppercase tracking-wider">
                             {scan.media_type || 'Unknown'}

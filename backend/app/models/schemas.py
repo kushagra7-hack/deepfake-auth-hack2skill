@@ -55,16 +55,16 @@ class ScanCreate(BaseModel):
 
 
 class ScanResponse(BaseModel):
-    id: UUID = Field(..., description="Unique scan identifier")
-    user_id: UUID = Field(..., description="Owner user ID")
+    id: Any = Field(..., description="Unique scan identifier")
+    user_id: Any = Field(..., description="Owner user ID")
     file_name: str = Field(..., description="Original filename")
     file_hash: str = Field(..., description="SHA-256 hash")
     threat_score: Optional[Decimal] = Field(None, ge=0, le=100, description="Threat score 0-100")
     status: ScanStatus = Field(..., description="Current scan status")
-    media_type: Optional[MediaType] = Field(None, description="Media type")
+    media_type: Optional[str] = Field(None, description="Media type")
     file_size: Optional[int] = Field(None, description="File size in bytes")
     result_details: Optional[Dict[str, Any]] = Field(None, description="Detailed analysis results")
-    created_at: datetime = Field(..., description="Scan creation timestamp")
+    created_at: Optional[datetime] = Field(None, description="Scan creation timestamp")
     completed_at: Optional[datetime] = Field(None, description="Scan completion timestamp")
 
     model_config = {"from_attributes": True}
