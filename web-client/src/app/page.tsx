@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import MagneticButton from '@/components/ui/magnetic-button'
 import Link from 'next/link'
 import { ArrowRight, Shield } from 'lucide-react'
 import { GlobalAnimatedBackground } from '@/components/ui/spline-background'
@@ -64,13 +65,12 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Link
-              href="/register"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest hover:bg-zinc-200 transition-all hover:scale-105 active:scale-95 group shadow-[0_0_30px_rgba(255,255,255,0.15)]"
-            >
-              Authenticate Now
-              <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+<Link href="/register" className="w-full sm:w-auto inline-block">
+               <MagneticButton className="inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest hover:bg-zinc-200 transition-all hover:scale-105 active:scale-95 group shadow-[0_0_30px_rgba(255,255,255,0.15)]">
+                 Authenticate Now
+                 <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+               </MagneticButton>
+             </Link>
             <Link
               href="/login"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/5 backdrop-blur-xl text-white border border-white/10 px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95"
