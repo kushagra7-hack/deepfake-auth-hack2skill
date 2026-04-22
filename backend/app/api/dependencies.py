@@ -1,17 +1,16 @@
 """
 API dependencies for Deepfake Authentication Gateway.
-Implements Zero-Trust API Perimeter with JWT validation.
+Zero-Trust API Perimeter — Firebase ID Token verification.
 """
 
 from typing import Annotated
 
 import cachetools
-import jwt
+from firebase_admin import auth as firebase_auth
+from firebase_admin.exceptions import FirebaseError
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt.exceptions import DecodeError, ExpiredSignatureError, InvalidTokenError
 
-from app.core.config import settings
 from app.models.schemas import UserTokenData
 
 security = HTTPBearer(auto_error=False)
@@ -22,222 +21,130 @@ class AuthenticationError(HTTPException):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=detail,
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
 
-class TokenValidationError(Exception):
-    pass
-
-
-async def verify_supabase_jwt(
+async def verify_firebase_token(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]
 ) -> UserTokenData:
     """
-    Zero-Trust JWT verification dependency.
-    
-    Validates Supabase JWT token from Authorization header.
-    Implements defense-in-depth security:
-    1. Presence check - rejects missing tokens
-    2. Format validation - validates JWT structure
-    3. Signature verification - cryptographically verifies authenticity
-    4. Expiration check - ensures token hasn't expired
-    5. Audience validation - confirms token is for our application
-    
-    Args:
-        credentials: HTTP Authorization credentials from Bearer token
-        
-    Returns:
-        UserTokenData: Validated user information from token payload
-        
+    Zero-Trust Firebase ID Token verification dependency.
+
+    Validates Firebase ID Token from the Authorization: Bearer header.
+    Steps:
+      1. Presence check — rejects missing tokens
+      2. Firebase Admin SDK cryptographic verification
+      3. Maps Firebase claims -> UserTokenData
+
     Raises:
-        HTTPException: 401 Unauthorized for any validation failure
+      HTTPException 401 for any validation failure
     """
     if credentials is None:
         raise AuthenticationError("Authorization header missing")
-    
-    token = credentials.credentials
-    
-    if not token or not token.strip():
+
+    token = credentials.credentials.strip()
+    if not token:
         raise AuthenticationError("Token cannot be empty")
-    
-    token = token.strip()
-    
-    token_parts = token.split(".")
-    if len(token_parts) != 3:
-        raise AuthenticationError("Invalid JWT format - must have 3 parts")
-    
-    for part in token_parts:
-        if not part:
-            raise AuthenticationError("Invalid JWT format - empty segment")
-    
+
     try:
-        unverified = jwt.get_unverified_header(token)
-        alg = unverified.get("alg", "HS256")
-        
-        verify_sig = True
-        key = settings.SUPABASE_JWT_SECRET
-        
-        if alg != "HS256" and settings.ENVIRONMENT == "development":
-            verify_sig = False
-            
-        payload = jwt.decode(
-            token,
-            key,
-            algorithms=[alg, "HS256", "RS256"],
-            audience=settings.JWT_AUDIENCE,
-            options={
-                "verify_signature": verify_sig,
-                "verify_exp": False,
-                "verify_iat": False,
-                "verify_aud": False,
-            }
-        )
-        
-        user_data = UserTokenData(**payload)
-        
-        return user_data
-        
-    except ExpiredSignatureError:
-        raise AuthenticationError("Token has expired - please refresh your session")
-    except DecodeError as e:
-        raise AuthenticationError(f"Invalid token encoding: {str(e)}")
-    except InvalidTokenError as e:
-        alg_header = jwt.get_unverified_header(token).get("alg", "unknown")
-        raise AuthenticationError(f"Invalid token: {str(e)} (Header alg: {alg_header})")
+        decoded = firebase_auth.verify_id_token(token, check_revoked=False)
+    except firebase_auth.ExpiredIdTokenError:
+        raise AuthenticationError("Firebase token has expired — please sign in again")
+    except firebase_auth.RevokedIdTokenError:
+        raise AuthenticationError("Firebase token has been revoked")
+    except firebase_auth.InvalidIdTokenError as e:
+        raise AuthenticationError(f"Invalid Firebase token: {e}")
+    except FirebaseError as e:
+        raise AuthenticationError(f"Firebase auth error: {e}")
     except Exception as e:
-        raise AuthenticationError(f"Token validation failed: {str(e)}")
+        raise AuthenticationError(f"Token validation failed: {e}")
+
+    # Map Firebase claims to our UserTokenData model
+    return UserTokenData(
+        sub=decoded.get("uid", ""),
+        email=decoded.get("email", ""),
+        role=decoded.get("role", "user"),
+        aud=decoded.get("aud", ""),
+        exp=decoded.get("exp", 0),
+        iat=decoded.get("iat", 0),
+    )
 
 
-async def verify_supabase_jwt_optional(
+# ── Optional auth ──────────────────────────────────────────────────────────────
+
+async def verify_firebase_token_optional(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]
 ) -> UserTokenData | None:
-    """
-    Optional JWT verification - returns None if no token provided.
-    
-    Useful for endpoints that work with or without authentication,
-    but may provide additional data when authenticated.
-    
-    Args:
-        credentials: Optional HTTP Authorization credentials
-        
-    Returns:
-        UserTokenData | None: User data if token valid, None otherwise
-    """
+    """Optional token verification — returns None if no token provided."""
     if credentials is None:
         return None
-    
     try:
-        return await verify_supabase_jwt(credentials)
+        return await verify_firebase_token(credentials)
     except HTTPException:
         return None
 
 
+# ── Role helpers ───────────────────────────────────────────────────────────────
+
 async def get_current_user_id(
-    user: Annotated[UserTokenData, Depends(verify_supabase_jwt)]
+    user: Annotated[UserTokenData, Depends(verify_firebase_token)]
 ) -> str:
-    """
-    Extract user ID from validated token.
-    
-    Args:
-        user: Validated user token data
-        
-    Returns:
-        str: User's unique identifier
-    """
     return str(user.sub)
 
 
 async def get_current_user_email(
-    user: Annotated[UserTokenData, Depends(verify_supabase_jwt)]
+    user: Annotated[UserTokenData, Depends(verify_firebase_token)]
 ) -> str:
-    """
-    Extract user email from validated token.
-    
-    Args:
-        user: Validated user token data
-        
-    Returns:
-        str: User's email address
-    """
     return user.email
 
 
 async def require_admin_role(
-    user: Annotated[UserTokenData, Depends(verify_supabase_jwt)]
+    user: Annotated[UserTokenData, Depends(verify_firebase_token)]
 ) -> UserTokenData:
-    """
-    Dependency that requires user to have admin role.
-    
-    Use this for admin-only endpoints.
-    
-    Args:
-        user: Validated user token data
-        
-    Returns:
-        UserTokenData: User data if admin
-        
-    Raises:
-        HTTPException: 403 Forbidden if not admin
-    """
     if user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            detail="Admin access required",
         )
     return user
 
 
+# ── Rate Limiter (unchanged) ───────────────────────────────────────────────────
+
 class RateLimiter:
-    """
-    Simple in-memory rate limiter for API endpoints.
-    
-    For production, replace with Redis-based rate limiting.
-    """
-    
-    def __init__(self, requests_per_minute: int = 60):
+    """Simple in-memory rate limiter. Replace with Redis in production."""
+
+    def __init__(self, requests_per_minute: int = 100):
         self.requests_per_minute = requests_per_minute
         self._requests = cachetools.TTLCache(maxsize=10000, ttl=60)
-    
+
     async def __call__(self, request: Request) -> None:
-        """
-        Check rate limit for current request.
-        
-        Args:
-            request: FastAPI request object
-            
-        Raises:
-            HTTPException: 429 Too Many Requests if limit exceeded
-        """
         import time
-        
         client_ip = request.client.host if request.client else "unknown"
         current_time = time.time()
-        
-        # Get existing requests list or create new one
         try:
             reqs = self._requests[client_ip]
         except KeyError:
             reqs = []
-            
-        # Filter old requests
         reqs = [t for t in reqs if current_time - t < 60]
-        
         if len(reqs) >= self.requests_per_minute:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Rate limit exceeded: {self.requests_per_minute} requests per minute"
+                detail=f"Rate limit exceeded: {self.requests_per_minute} req/min",
             )
-        
         reqs.append(current_time)
         self._requests[client_ip] = reqs
 
 
 rate_limiter = RateLimiter(requests_per_minute=100)
 
+# ── Typed shorthand aliases ────────────────────────────────────────────────────
 
-ValidatedUser = Annotated[UserTokenData, Depends(verify_supabase_jwt)]
-OptionalUser = Annotated[UserTokenData | None, Depends(verify_supabase_jwt_optional)]
-AdminUser = Annotated[UserTokenData, Depends(require_admin_role)]
-CurrentUserId = Annotated[str, Depends(get_current_user_id)]
+ValidatedUser  = Annotated[UserTokenData, Depends(verify_firebase_token)]
+OptionalUser   = Annotated[UserTokenData | None, Depends(verify_firebase_token_optional)]
+AdminUser      = Annotated[UserTokenData, Depends(require_admin_role)]
+CurrentUserId  = Annotated[str, Depends(get_current_user_id)]
 CurrentUserEmail = Annotated[str, Depends(get_current_user_email)]
+
+# Removed legacy Supabase alias

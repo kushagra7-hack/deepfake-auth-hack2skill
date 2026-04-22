@@ -4,17 +4,13 @@ Uses the official huggingface_hub InferenceClient for reliable API access.
 """
 
 import asyncio
-import base64
-import hashlib
 import logging
 import time
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Optional
 
 import httpx
 from huggingface_hub import InferenceClient
-from huggingface_hub.errors import HfHubHTTPError
 
 from app.core.config import settings
 from app.core.security import FileInfo
@@ -188,7 +184,8 @@ class HuggingFaceClient:
                         err = response.json().get("error", "Permission denied")
                         logger.error(f"[HF] 403 for {model_name}: {err}")
                         last_error = HFAPIResponseError(
-                            "HuggingFace 403: Token needs 'inference.serverless.write' permission.",
+                            "HuggingFace 403: Token needs "
+                            "'inference.serverless.write' permission.",
                             403
                         )
                         break
@@ -255,9 +252,16 @@ class HuggingFaceClient:
                 data = data[0]
 
         MODEL_LABEL_MAPS: dict[str, dict[str, str]] = {
-            "dima806/deepfake_vs_real_image_detection": {"fake": "fake", "real": "real"},
-            "Organika/sdxl-detector": {"artificial": "fake", "human": "real", "sdxl": "fake", "not sdxl": "real"},
-            "Falconsai/nsfw_image_detection": {"nsfw": "fake", "normal": "real"},
+            "dima806/deepfake_vs_real_image_detection": {
+                "fake": "fake", "real": "real"
+            },
+            "Organika/sdxl-detector": {
+                "artificial": "fake", "human": "real", 
+                "sdxl": "fake", "not sdxl": "real"
+            },
+            "Falconsai/nsfw_image_detection": {
+                "nsfw": "fake", "normal": "real"
+            },
         }
 
         fake_keywords = [

@@ -12,15 +12,13 @@ from app.services.hf_client import (
     analyze_deepfake,
     get_hf_client,
 )
-from app.services.supabase_db import (
+from app.services.firestore_db import (
     DatabaseError,
     DuplicateScanError,
     ScanNotFoundError,
     check_hash_exists,
     clear_cache,
-    get_cached_threat_score,
     get_scan_by_id,
-    get_supabase_client,
     get_user_scans,
     get_user_stats,
     log_scan,
@@ -41,9 +39,7 @@ __all__ = [
     "ScanNotFoundError",
     "check_hash_exists",
     "clear_cache",
-    "get_cached_threat_score",
     "get_scan_by_id",
-    "get_supabase_client",
     "get_user_scans",
     "get_user_stats",
     "log_scan",

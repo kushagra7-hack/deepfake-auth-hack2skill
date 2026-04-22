@@ -16,7 +16,7 @@ from app.api.dependencies import (
     CurrentUserId,
     OptionalUser,
     ValidatedUser,
-    verify_supabase_jwt,
+    verify_firebase_token,
 )
 from app.core.config import settings
 from app.models.schemas import (

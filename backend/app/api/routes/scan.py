@@ -22,7 +22,7 @@ from app.api.dependencies import (
     CurrentUserId,
     ValidatedUser,
     rate_limiter,
-    verify_supabase_jwt,
+    verify_firebase_token,
 )
 from app.core.config import settings
 from app.core.security import (
@@ -43,7 +43,7 @@ from app.services.hf_client import (
     HFTimeoutError,
     analyze_deepfake,
 )
-from app.services.supabase_db import (
+from app.services.firestore_db import (
     DatabaseError,
     check_hash_exists,
     get_scan_by_id,
@@ -246,96 +246,115 @@ async def create_scan(
     tier_used: int = 1
     status_value = ScanStatus.COMPLETED
     result_details: dict = {}
+    analysis_result = None
+    gemini_model_used = ""
+    gemini_confidence = None
+    gemini_tier = ""
 
-    try:
-        logger.info(f"[TIER-1] Dispatching '{filename}' to HuggingFace deepfake model …")
-        analysis_result = await analyze_deepfake(file_bytes, file_info)
-
-        hf_score_normalized = analysis_result.probability_score / 100.0
-        logger.info(
-            f"[TIER-1] Result for '{filename}': "
-            f"raw_score={analysis_result.probability_score:.4f}%, "
-            f"normalised={hf_score_normalized:.4f}, "
-            f"model={analysis_result.model_used}"
-        )
-
-    except Exception as e:
-        logger.error(f"[TIER-1] HuggingFace error for '{filename}': {e}")
-        # HF failed — set score to 1.0 so Gemini always fires
-        hf_score_normalized = 1.0
-        analysis_result = None
-        status_value = ScanStatus.FAILED
-
-    # ─────────────────────────────────────────────────────────────────────
-    # TIER-2 ── Gemini Visual Forensics  [ZERO-TRUST: ALWAYS RUNS]
-    # ─────────────────────────────────────────────────────────────────────
-    if file_info.media_type == "image":
-        logger.info(
-            f"[SECURITY OVERRIDE] Bypassing Tier 1 threshold. "
-            f"Forcing Gemini visual artifact inspection on '{filename}'."
-        )
+    content_type = file.content_type
+    if content_type and content_type.startswith("audio/"):
+        logger.info(f"[SECURITY OVERRIDE] Audio file '{filename}' detected. Bypassing HuggingFace to prevent model crash.")
         try:
             from app.services.gemini_client import run_gemini_analysis
-            gemini_result = await run_gemini_analysis(file_bytes, hf_score_normalized)
-            gemini_verdict   = gemini_result.get("gemini_verdict", "AUTHENTIC")
+            gemini_result = await run_gemini_analysis(file_bytes, 1.0)
+            gemini_verdict = gemini_result.get("gemini_verdict", "AUTHENTIC")
             gemini_reasoning = gemini_result.get("gemini_reasoning", "")
-            gemini_model_used   = gemini_result.get("gemini_model_used", "")
-            gemini_confidence   = gemini_result.get("gemini_confidence", None)
-            gemini_tier         = gemini_result.get("tier", "tier-2")
+            gemini_model_used = gemini_result.get("gemini_model_used", "")
+            gemini_confidence = gemini_result.get("gemini_confidence", None)
+            gemini_tier = "tier-2-direct"
+            
+            hf_score_normalized = 0.85 if gemini_verdict == "DEEPFAKE" else 0.15
             tier_used = 2
             status_value = ScanStatus.COMPLETED
-            logger.info(
-                f"[TIER-2] Final verdict for '{filename}': "
-                f"{gemini_verdict} | model={gemini_model_used} | confidence={gemini_confidence}%"
-            )
-        except RuntimeError as gemini_err:
-            logger.warning(
-                f"[TIER-2] Gemini unavailable ({gemini_err}). "
-                f"Falling back to HF score only."
-            )
-            gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
-            gemini_reasoning = (
-                f"Tier 2 analysis unavailable. Verdict derived from Tier 1 score "
-                f"({hf_score_normalized * 100:.2f}%)."
-            )
-            gemini_model_used = ""
-            gemini_confidence = None
-            gemini_tier = "tier-1-fallback"
-            tier_used = 1
+        except Exception as gemini_err:
+            logger.error(f"[AUDIO BYPASS] Gemini unavailable: {gemini_err}")
+            hf_score_normalized = 0.0
+            gemini_verdict = "ANALYSIS_FAILED"
+            gemini_reasoning = f"Direct Tier-2 Audio Analysis failed: {str(gemini_err)}"
+            gemini_tier = "tier-2-failed"
+            tier_used = 2
+            status_value = ScanStatus.FAILED
     else:
-        # Video / audio: keep original threshold-based logic
-        HF_SUSPICION_THRESHOLD = 0.20
-        if hf_score_normalized >= HF_SUSPICION_THRESHOLD:
+        try:
+            logger.info(f"[TIER-1] Dispatching '{filename}' to HuggingFace deepfake model …")
+            analysis_result = await analyze_deepfake(file_bytes, file_info)
+    
+            hf_score_normalized = analysis_result.probability_score / 100.0
             logger.info(
-                f"[TIER-2] Non-image score {hf_score_normalized:.4f} >= {HF_SUSPICION_THRESHOLD}. "
-                f"Escalating '{filename}' to Gemini ..."
+                f"[TIER-1] Result for '{filename}': "
+                f"raw_score={analysis_result.probability_score:.4f}%, "
+                f"normalised={hf_score_normalized:.4f}, "
+                f"model={analysis_result.model_used}"
+            )
+    
+        except Exception as e:
+            logger.error(f"[TIER-1] HuggingFace error for '{filename}': {e}")
+            hf_score_normalized = 1.0
+            status_value = ScanStatus.FAILED
+    
+        if file_info.media_type == "image":
+            logger.info(
+                f"[SECURITY OVERRIDE] Bypassing Tier 1 threshold. "
+                f"Forcing Gemini visual artifact inspection on '{filename}'."
             )
             try:
                 from app.services.gemini_client import run_gemini_analysis
                 gemini_result = await run_gemini_analysis(file_bytes, hf_score_normalized)
-                gemini_verdict      = gemini_result.get("gemini_verdict", "AUTHENTIC")
-                gemini_reasoning    = gemini_result.get("gemini_reasoning", "")
+                gemini_verdict   = gemini_result.get("gemini_verdict", "AUTHENTIC")
+                gemini_reasoning = gemini_result.get("gemini_reasoning", "")
                 gemini_model_used   = gemini_result.get("gemini_model_used", "")
                 gemini_confidence   = gemini_result.get("gemini_confidence", None)
                 gemini_tier         = gemini_result.get("tier", "tier-2")
                 tier_used = 2
+                status_value = ScanStatus.COMPLETED
             except RuntimeError as gemini_err:
-                logger.warning(f"[TIER-2] Gemini unavailable: {gemini_err}")
-                gemini_verdict    = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
-                gemini_reasoning  = f"Tier 2 unavailable. Score: {hf_score_normalized * 100:.2f}%."
+                logger.warning(
+                    f"[TIER-2] Gemini unavailable ({gemini_err}). "
+                    f"Falling back to HF score only."
+                )
+                gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
+                gemini_reasoning = (
+                    f"Tier 2 analysis unavailable. Verdict derived from Tier 1 score "
+                    f"({hf_score_normalized * 100:.2f}%)."
+                )
                 gemini_model_used = ""
                 gemini_confidence = None
-                gemini_tier       = "tier-1-fallback"
+                gemini_tier = "tier-1-fallback"
+                tier_used = 1
         else:
-            logger.info(
-                f"[TIER-1] Non-image score {hf_score_normalized:.4f} < {HF_SUSPICION_THRESHOLD}. "
-                f"Verdict: AUTHENTIC."
-            )
-            gemini_verdict    = "AUTHENTIC"
-            gemini_reasoning  = "Cleared by Tier 1 mathematical scan."
-            gemini_model_used = ""
-            gemini_confidence = None
-            gemini_tier       = "tier-1"
+            # Video: keep original threshold-based logic
+            HF_SUSPICION_THRESHOLD = 0.20
+            if hf_score_normalized >= HF_SUSPICION_THRESHOLD:
+                logger.info(
+                    f"[TIER-2] Non-image score {hf_score_normalized:.4f} >= {HF_SUSPICION_THRESHOLD}. "
+                    f"Escalating '{filename}' to Gemini ..."
+                )
+                try:
+                    from app.services.gemini_client import run_gemini_analysis
+                    gemini_result = await run_gemini_analysis(file_bytes, hf_score_normalized)
+                    gemini_verdict      = gemini_result.get("gemini_verdict", "AUTHENTIC")
+                    gemini_reasoning    = gemini_result.get("gemini_reasoning", "")
+                    gemini_model_used   = gemini_result.get("gemini_model_used", "")
+                    gemini_confidence   = gemini_result.get("gemini_confidence", None)
+                    gemini_tier         = gemini_result.get("tier", "tier-2")
+                    tier_used = 2
+                except RuntimeError as gemini_err:
+                    logger.warning(f"[TIER-2] Gemini unavailable: {gemini_err}")
+                    gemini_verdict    = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
+                    gemini_reasoning  = f"Tier 2 unavailable. Score: {hf_score_normalized * 100:.2f}%."
+                    gemini_model_used = ""
+                    gemini_confidence = None
+                    gemini_tier       = "tier-1-fallback"
+            else:
+                logger.info(
+                    f"[TIER-1] Non-image score {hf_score_normalized:.4f} < {HF_SUSPICION_THRESHOLD}. "
+                    f"Verdict: AUTHENTIC."
+                )
+                gemini_verdict    = "AUTHENTIC"
+                gemini_reasoning  = "Cleared by Tier 1 mathematical scan."
+                gemini_model_used = ""
+                gemini_confidence = None
+                gemini_tier       = "tier-1"
 
     # ── Build final stats ─────────────────────────────────────────────────
     if analysis_result is not None:
@@ -483,6 +502,7 @@ async def list_scans(
     page: int = 1,
     page_size: int = 20,
     status_filter: ScanStatus | None = None,
+    media_type: str | None = None,
 ) -> dict[str, Any]:
     """Get paginated list of user's scans."""
     try:
@@ -490,7 +510,8 @@ async def list_scans(
             user_id=user_id,
             page=page,
             page_size=page_size,
-            status_filter=status_filter
+            status_filter=status_filter,
+            media_type_filter=media_type
         )
         
         scan_responses = [
