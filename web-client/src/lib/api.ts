@@ -9,6 +9,21 @@ import { getAccessToken } from './supabase'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+export interface ScanResultDetails {
+  gemini_verdict?: 'AUTHENTIC' | 'DEEPFAKE'
+  gemini_reasoning?: string
+  hf_score?: number
+  hf_score_pct?: number
+  tier_used?: number
+  model_used?: string
+  is_deepfake?: boolean
+  confidence_level?: 'low' | 'medium' | 'high'
+  processing_time_ms?: number
+  error?: string
+  error_type?: string
+  message?: string
+}
+
 export interface ScanResponse {
   id: string
   user_id: string
@@ -18,7 +33,7 @@ export interface ScanResponse {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   media_type: string | null
   file_size: number | null
-  result_details: Record<string, unknown> | null
+  result_details: ScanResultDetails | null
   created_at: string
   completed_at: string | null
 }
@@ -35,6 +50,12 @@ export interface ScanStatsResponse {
   pending_scans: number
   completed_scans: number
   avg_threat_score: number
+}
+
+export interface AdminStatsResponse {
+  total_users: number
+  total_scans: number
+  active_users: number
 }
 
 export interface UserProfile {
@@ -75,11 +96,9 @@ class ApiClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      const error: ApiError = await response.json().catch(() => ({
-        error: 'unknown_error',
-        message: 'An unknown error occurred',
-      }))
-      throw new ApiClientError(error.message, response.status, error)
+      const errorData = await response.json().catch(() => ({}))
+      const errorMsg = errorData.detail || errorData.message || 'An unknown error occurred'
+      throw new ApiClientError(errorMsg, response.status, errorData)
     }
     
     return response.json()
@@ -123,24 +142,49 @@ class ApiClient {
     return this.handleResponse<T>(response)
   }
 
-  async uploadFile<T>(endpoint: string, file: File): Promise<T> {
+  async uploadFile<T>(endpoint: string, file: File, onProgress?: (p: number) => void): Promise<T> {
     const token = await getAccessToken()
     
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    const headers: HeadersInit = {}
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-    
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: formData,
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${this.baseUrl}${endpoint}`)
+      
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      }
+      
+      if (onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            onProgress(Math.round((event.loaded / event.total) * 100))
+          }
+        }
+      }
+      
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText))
+          } catch (e) {
+            resolve(xhr.responseText as unknown as T)
+          }
+        } else {
+          try {
+            const error = JSON.parse(xhr.responseText)
+            const errorMsg = error.detail || error.message || 'Upload failed'
+            reject(new ApiClientError(errorMsg, xhr.status, error))
+          } catch (e) {
+            reject(new ApiClientError('Upload failed', xhr.status))
+          }
+        }
+      }
+      
+      xhr.onerror = () => reject(new ApiClientError('Network error', 0))
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      xhr.send(formData)
     })
-    
-    return this.handleResponse<T>(response)
   }
 }
 
@@ -165,8 +209,8 @@ export async function getScanById(scanId: string): Promise<ScanResponse> {
   return apiClient.get<ScanResponse>(`/api/scan/${scanId}`)
 }
 
-export async function uploadScan(file: File): Promise<ScanResponse> {
-  return apiClient.uploadFile<ScanResponse>('/api/scan', file)
+export async function uploadScan(file: File, onProgress?: (p: number) => void): Promise<ScanResponse> {
+  return apiClient.uploadFile<ScanResponse>('/api/scan', file, onProgress)
 }
 
 export async function getScanStats(): Promise<ScanStatsResponse> {
@@ -183,4 +227,16 @@ export async function updateUserProfile(data: { full_name?: string }): Promise<U
 
 export async function deleteAccount(): Promise<{ message: string }> {
   return apiClient.delete<{ message: string }>('/api/auth/me')
+}
+
+export async function getAdminStats(): Promise<AdminStatsResponse> {
+  return apiClient.get<AdminStatsResponse>('/api/admin/stats')
+}
+
+export async function getAdminUsers(): Promise<UserProfile[]> {
+  return apiClient.get<UserProfile[]>('/api/admin/users')
+}
+
+export async function updateUserRole(userId: string, role: string): Promise<{ message: string }> {
+  return apiClient.patch<{ message: string }>(`/api/admin/users/${userId}/role`, { role })
 }

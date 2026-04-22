@@ -5,32 +5,10 @@
  * Uses environment variables for secure configuration.
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/client'
 import type { Database } from '@/types/database'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'
-  )
-}
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    storageKey: 'deepfake-gateway-auth',
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'deepfake-gateway-web-client',
-    },
-  },
-})
+export const supabase = createClient()
 
 /**
  * Get the current authenticated user's session

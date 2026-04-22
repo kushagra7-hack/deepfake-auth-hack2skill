@@ -5,14 +5,14 @@ FastAPI application entry point for Deepfake Authentication Gateway.
 import logging
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import auth, scan
+from app.api.routes import admin, auth, scan
 from app.core.config import settings
 from app.models.schemas import ErrorResponse, HealthResponse
 
@@ -21,6 +21,10 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
+# Silence noisy HTTP library logs
+logging.getLogger("hpack").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +74,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(scan.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 @app.exception_handler(Exception)
@@ -100,7 +105,7 @@ async def root() -> HealthResponse:
     return HealthResponse(
         status="operational",
         version=settings.APP_VERSION,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
     )
 
 
@@ -115,7 +120,7 @@ async def health_check() -> HealthResponse:
     return HealthResponse(
         status="healthy",
         version=settings.APP_VERSION,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
     )
 
 
@@ -132,7 +137,7 @@ async def readiness_check() -> dict[str, Any]:
     """
     checks: dict[str, Any] = {
         "status": "ready",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": settings.APP_VERSION,
         "checks": {}
     }
@@ -145,7 +150,7 @@ async def readiness_check() -> dict[str, Any]:
         checks["checks"]["database"] = f"error: {str(e)}"
         checks["status"] = "not_ready"
     
-    checks["checks"]["huggingface_api"] = "configured" if settings.SUPABASE_ANON_KEY else "not_configured"
+    checks["checks"]["huggingface_api"] = "configured" if settings.HUGGINGFACE_API_KEY else "not_configured"
     
     all_healthy = all(
         v in ["connected", "configured", "ok"] 
@@ -176,11 +181,11 @@ async def add_security_headers(request: Request, call_next):
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log all incoming requests."""
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     
     response = await call_next(request)
     
-    duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+    duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
     
     logger.info(
         f"{request.method} {request.url.path} - "

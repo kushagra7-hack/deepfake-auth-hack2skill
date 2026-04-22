@@ -1,15 +1,25 @@
 {
+<<<<<<< HEAD
   "name": "deepfake-auth-hack2skill",
   "version": "1.0.0",
   "description": "",
   "homepage": "https://github.com/kushagra7-hack/deepfake-auth-hack2skill#readme",
   "bugs": {
     "url": "https://github.com/kushagra7-hack/deepfake-auth-hack2skill/issues"
+=======
+  "name": "hack2skill_deepfake",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+>>>>>>> 70329fbe3485ad3151b91eca60f211090005a294
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kushagra7-hack/deepfake-auth-hack2skill.git"
   },
+<<<<<<< HEAD
   "license": "ISC",
   "author": "",
   "type": "commonjs",
@@ -17,4 +27,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   }
+=======
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kushagra7-hack/deepfake-auth-hack2skill/issues"
+  },
+  "homepage": "https://github.com/kushagra7-hack/deepfake-auth-hack2skill#readme"
+>>>>>>> 70329fbe3485ad3151b91eca60f211090005a294
 }

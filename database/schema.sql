@@ -63,6 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_scans_user_id ON public.scans(user_id);
 CREATE INDEX IF NOT EXISTS idx_scans_status ON public.scans(status);
 CREATE INDEX IF NOT EXISTS idx_scans_created_at ON public.scans(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_scans_file_hash ON public.scans(file_hash);
+CREATE INDEX IF NOT EXISTS idx_scans_user_hash ON public.scans(user_id, file_hash);
 CREATE INDEX IF NOT EXISTS idx_scans_threat_score ON public.scans(threat_score DESC);
 
 -- ============================================
@@ -98,6 +99,11 @@ CREATE POLICY "admins_select_all" ON public.users
             WHERE id = auth.uid() AND role = 'admin'
         )
     );
+
+-- Users can delete their own profile (account deletion)
+CREATE POLICY "users_delete_own" ON public.users
+    FOR DELETE
+    USING (auth.uid() = id);
 
 -- ============================================
 -- 5. RLS POLICIES FOR SCANS TABLE
