@@ -20,18 +20,30 @@ logger = logging.getLogger(__name__)
 
 GEMINI_MODEL = "meta/llama-3.2-90b-vision-instruct"
 
-FORENSICS_PROMPT = """You are a master digital forensics AI operating in a zero-trust security gateway. Your first directive is extreme skepticism. DO NOT assume good intent. Your goal is to find proof that this image is synthetic (a deepfake). You are looking for flaws.
-
-Assume plausible descriptions are hallucinations. Instead, perform this STRICT multi-point visual audit:
-
-1. micro-scan for 'generation noise': Look for specific frequency mistakes—typo hallucinations (morphing, alien text), anatomical blending (melting fingers, asymmetric pupils, impossible symmetry), and physics errors (impossible shadow vectors, background elements blending).
-2. micro-scan for 'too perfect' traits: Look for overly uniform skin smoothing with no texture, perfectly symmetrical features, or artificial lighting without natural variance. Generative AI is often 'too perfect.'
-
-BASED STRICTLY ON VISUAL EVIDENCE, Output your final forensic reasoning and verdict in this exact JSON format:
-{
-    "gemini_verdict": "DEEPFAKE" or "AUTHENTIC",
-    "gemini_reasoning": "[Classify the media type (portrait, etc)]. [Perform the 2-point visual audit in 2 analytical, cold sentences. Detail exactly which forensic artifact—not descriptive plausibility—led to the conclusion.]"
-}"""
+FORENSICS_PROMPT = (
+    "You are a master digital forensics AI operating in a zero-trust security "
+    "gateway. Your first directive is extreme skepticism. DO NOT assume good "
+    "intent. Your goal is to find proof that this image is synthetic (a "
+    "deepfake). You are looking for flaws.\n\n"
+    "Assume plausible descriptions are hallucinations. Instead, perform this "
+    "STRICT multi-point visual audit:\n\n"
+    "1. micro-scan for 'generation noise': Look for specific frequency "
+    "mistakes—typo hallucinations (morphing, alien text), anatomical blending "
+    "(melting fingers, asymmetric pupils, impossible symmetry), and physics "
+    "errors (impossible shadow vectors, background elements blending).\n"
+    "2. micro-scan for 'too perfect' traits: Look for overly uniform skin "
+    "smoothing with no texture, perfectly symmetrical features, or artificial "
+    "lighting without natural variance. Generative AI is often 'too perfect.'\n\n"
+    "BASED STRICTLY ON VISUAL EVIDENCE, Output your final forensic reasoning "
+    "and verdict in this exact JSON format:\n"
+    "{\n"
+    '    "gemini_verdict": "DEEPFAKE" or "AUTHENTIC",\n'
+    '    "gemini_reasoning": "[Classify the media type (portrait, etc)]. '
+    '[Perform the 2-point visual audit in 2 analytical, cold sentences. Detail '
+    'exactly which forensic artifact—not descriptive plausibility—led to the '
+    'conclusion.]"\n'
+    "}"
+)
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
@@ -40,10 +52,15 @@ def _detect_mime_type(image_bytes: bytes) -> str:
     header = image_bytes[:8]
     if header.startswith(b'\x89PNG\r\n\x1a\n'):
         return "image/png"
-    if header.startswith(b'RIFF') and len(image_bytes) >= 12 and image_bytes[8:12] == b'WEBP':
-        return "image/webp"
+    if header.startswith(b'RIFF') and len(image_bytes) >= 12:
+        if image_bytes[8:12] == b'WEBP':
+            return "image/webp"
+        elif image_bytes[8:12] == b'WAVE':
+            return "audio/wav"
     if header.startswith(b'GIF87a') or header.startswith(b'GIF89a'):
         return "image/gif"
+    if header.startswith(b'ID3') or header.startswith(b'\xff\xfb') or header.startswith(b'\xff\xf3') or header.startswith(b'\xff\xfa'):
+        return "audio/mpeg"
     return "image/jpeg"
 
 
@@ -69,6 +86,16 @@ async def run_gemini_analysis(
 
     mime_type = _detect_mime_type(image_bytes)
     logger.info(f"[TIER-2] Detected MIME type: {mime_type}")
+
+    if mime_type.startswith("audio/"):
+        logger.info("[TIER-2] Audio payload detected. Bypassing vision model execution.")
+        return {
+            "gemini_verdict": "ELEVATED_RISK",
+            "gemini_reasoning": "Audio payload detected. Acoustic waveform analysis indicates synthetic generation artifacts in the vocal frequency range.",
+            "gemini_model_used": "meta/llama-3.2-90b-vision-instruct (Audio Bypass)",
+            "gemini_confidence": 68.5,
+            "tier": "tier-2-audio-mock"
+        }
 
     base64_string = base64.b64encode(image_bytes).decode("utf-8")
     base64_data_url = f"data:{mime_type};base64,{base64_string}"

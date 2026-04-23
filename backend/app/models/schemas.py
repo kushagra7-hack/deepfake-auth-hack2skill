@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ScanStatus(str, Enum):
@@ -78,7 +78,7 @@ class ScanListResponse(BaseModel):
 
 
 class UserTokenData(BaseModel):
-    sub: UUID = Field(..., description="User ID from Supabase Auth")
+    sub: str = Field(..., description="User ID from Firebase Auth")
     email: str = Field(..., description="User email")
     role: Optional[str] = Field(None, description="User role")
     aud: str = Field(..., description="JWT audience")
@@ -94,7 +94,7 @@ class UserTokenData(BaseModel):
 
 
 class UserProfile(BaseModel):
-    id: UUID = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     email: str = Field(..., description="User email")
     full_name: Optional[str] = Field(None, description="User full name")
     role: UserRole = Field(default=UserRole.USER, description="User role")

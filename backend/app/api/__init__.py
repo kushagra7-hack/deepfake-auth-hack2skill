@@ -13,8 +13,8 @@ from app.api.dependencies import (
     get_current_user_id,
     rate_limiter,
     require_admin_role,
-    verify_supabase_jwt,
-    verify_supabase_jwt_optional,
+    verify_firebase_token,
+    verify_firebase_token_optional,
 )
 
 __all__ = [
@@ -28,6 +28,6 @@ __all__ = [
     "get_current_user_id",
     "rate_limiter",
     "require_admin_role",
-    "verify_supabase_jwt",
-    "verify_supabase_jwt_optional",
+    "verify_firebase_token",
+    "verify_firebase_token_optional",
 ]

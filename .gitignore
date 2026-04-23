@@ -1,12 +1,9 @@
 node_modules/
-<<<<<<< HEAD
 # .env
-=======
 .env
 .env.local
 .env.*
 !.env.example
->>>>>>> 70329fbe3485ad3151b91eca60f211090005a294
 venv/
 .venv/
 __pycache__/
@@ -39,3 +36,8 @@ output*.json
 hf_*.txt
 auth_results*.txt
 cors_results*.txt
+# Secrets and Keys
+.env
+*.json
+!flutter-client/android/app/google-services.json # Keep this if it's just the config, but usually safe to ignore too
+firebase-service-account.json

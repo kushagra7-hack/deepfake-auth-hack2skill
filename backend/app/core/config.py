@@ -1,9 +1,11 @@
-"""
+﻿"""
 Application configuration for Deepfake Authentication Gateway.
 Uses Pydantic Settings for type-safe environment variable loading.
+Firebase replaces Supabase for auth and database.
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, field_validator
@@ -12,61 +14,63 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore"
     )
-    
+
     APP_NAME: str = "Deepfake Authentication Gateway"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     ENVIRONMENT: Literal["development", "staging", "production"] = "production"
-    
-    SUPABASE_URL: str = Field(default="", description="Supabase project URL")
-    SUPABASE_ANON_KEY: str = Field(default="", description="Supabase anonymous key")
-    SUPABASE_SERVICE_ROLE_KEY: str = Field(..., description="Supabase service role key")
-    SUPABASE_JWT_SECRET: str = Field(..., description="Supabase JWT secret for token verification")
-    HUGGINGFACE_API_KEY: str = Field(..., description="Hugging Face Inference API key")
-    GEMINI_API_KEY: str = Field(default="", description="Google Gemini API key for Tier-2 deepfake analysis")
-    NVIDIA_API_KEY: str = Field(default="", description="NVIDIA API key for Tier-2 deepfake analysis")
-    
-    DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
-    
+
+    # ── Firebase ─────────────────────────────────────────────────────────────
+    FIREBASE_CREDENTIALS_PATH: str = Field(
+        default="firebase-service-account.json",
+        description="Path to Firebase service account JSON file"
+    )
+    FIREBASE_PROJECT_ID: str = Field(
+        default="nexus-gateway-cca4c",
+        description="Firebase / GCP project ID"
+    )
+
+    # ── AI APIs ──────────────────────────────────────────────────────────────
+    HUGGINGFACE_API_KEY: str = Field(..., description="HuggingFace Inference API key")
+    NVIDIA_API_KEY: str = Field(default="", description="NVIDIA NIM API key for Tier-2 analysis")
+
+    # ── JWT (kept for legacy token parsing if needed) ────────────────────────
     JWT_AUDIENCE: str = "authenticated"
     JWT_ALGORITHM: str = "HS256"
-    
-    MAX_FILE_SIZE: int = Field(default=104857600, description="Max upload size in bytes (100MB)")
+
+    # ── File Upload ───────────────────────────────────────────────────────────
+    MAX_FILE_SIZE: int = Field(default=104857600, description="Max upload size in bytes (100 MB)")
     ALLOWED_EXTENSIONS: str = ".mp4,.avi,.mov,.webm,.mkv,.wav,.mp3,.flac,.ogg,.png,.jpg,.jpeg,.gif,.webp,.bmp"
-    
+
+    # ── Scanning ──────────────────────────────────────────────────────────────
     SCAN_TIMEOUT: int = Field(default=300, description="Scan processing timeout in seconds")
     THREAT_THRESHOLD_LOW: float = Field(default=30.0, ge=0, le=100)
     THREAT_THRESHOLD_HIGH: float = Field(default=70.0, ge=0, le=100)
-    
+
+    # ── Rate Limiting ─────────────────────────────────────────────────────────
     RATE_LIMIT_REQUESTS: int = Field(default=100, description="Requests per minute per IP")
     RATE_LIMIT_ENABLED: bool = True
-    
-    CORS_ORIGINS: str = "http://localhost:3000"
+
+    # ── CORS ─────────────────────────────────────────────────────────────────
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: str = "*"
     CORS_ALLOW_HEADERS: str = "*"
-    
-    @field_validator("SUPABASE_URL")
+
+    # ── Validators ────────────────────────────────────────────────────────────
+    @field_validator("FIREBASE_CREDENTIALS_PATH")
     @classmethod
-    def validate_supabase_url(cls, v: str) -> str:
-        if not v.startswith("https://"):
-            raise ValueError("SUPABASE_URL must start with https://")
-        return v.rstrip("/")
-    
-    @field_validator("SUPABASE_JWT_SECRET")
-    @classmethod
-    def validate_jwt_secret(cls, v: str) -> str:
-        if len(v) < 32:
-            raise ValueError("JWT secret must be at least 32 characters")
+    def validate_credentials_path(cls, v: str) -> str:
+        # Allow relative paths — resolved at runtime from CWD (backend/)
         return v
-    
+
     @field_validator("ENVIRONMENT")
     @classmethod
     def validate_environment(cls, v: str) -> str:
@@ -74,21 +78,22 @@ class Settings(BaseSettings):
         if v not in allowed:
             raise ValueError(f"ENVIRONMENT must be one of: {allowed}")
         return v
-    
+
+    # ── Computed properties ───────────────────────────────────────────────────
     @property
     def allowed_extensions_list(self) -> list[str]:
         return [ext.strip() for ext in self.ALLOWED_EXTENSIONS.split(",")]
-    
+
     @property
     def cors_origins_list(self) -> list[str]:
         if self.CORS_ORIGINS == "*":
             return ["*"]
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
-    
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
-    
+
     @property
     def is_development(self) -> bool:
         return self.ENVIRONMENT == "development"

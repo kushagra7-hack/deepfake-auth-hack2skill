@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import admin, auth, scan
+from app.api.routes import scan
 from app.core.config import settings
 from app.models.schemas import ErrorResponse, HealthResponse
 
@@ -36,12 +36,13 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
     
+    from app.services.firebase_config import initialize_firebase, get_firestore
+    initialize_firebase()
     try:
-        from app.services.supabase_db import get_supabase_client
-        client = await get_supabase_client()
-        logger.info("Database connection established successfully")
+        db = get_firestore()
+        logger.info("Firestore connection established successfully")
     except Exception as e:
-        logger.warning(f"Database connection check failed: {e}")
+        logger.warning(f"Firestore connection check failed: {e}")
     
     yield
     
@@ -65,16 +66,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
-    allow_methods=settings.CORS_ALLOW_METHODS.split(","),
-    allow_headers=settings.CORS_ALLOW_HEADERS.split(","),
+    allow_origins=["*"], 
+    allow_credentials=False, # Must be False when origins is [*]
+    allow_methods=["*"], 
+    allow_headers=["*"], 
     max_age=600,
 )
 
-app.include_router(auth.router, prefix="/api")
 app.include_router(scan.router, prefix="/api")
-app.include_router(admin.router, prefix="/api")
 
 
 @app.exception_handler(Exception)
@@ -143,8 +142,8 @@ async def readiness_check() -> dict[str, Any]:
     }
     
     try:
-        from app.services.supabase_db import get_supabase_client
-        client = await get_supabase_client()
+        from app.services.firebase_config import get_firestore
+        _ = get_firestore()
         checks["checks"]["database"] = "connected"
     except Exception as e:
         checks["checks"]["database"] = f"error: {str(e)}"
@@ -180,7 +179,16 @@ async def add_security_headers(request: Request, call_next):
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """Log all incoming requests."""
+    """Log all incoming requests and bypass OPTIONS."""
+    if request.method == "OPTIONS":
+        from fastapi.responses import Response
+        return Response(status_code=200, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        })
+
     start_time = datetime.now(timezone.utc)
     
     response = await call_next(request)
