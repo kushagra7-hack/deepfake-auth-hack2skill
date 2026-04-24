@@ -1,43 +1,54 @@
+# Node / Frontend
 node_modules/
-# .env
-.env
-.env.local
-.env.*
-!.env.example
+.next/
+.next/cache/
+dist/
+build/
+coverage/
+
+# Python / Backend
 venv/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
-.next/
-.next/cache/
-dist/
-build/
-coverage/
+
+# Environment files (IMPORTANT)
+.env
+.env.local
+.env.*
+
+# Allow example files
+!.env.example
+
+# Logs
 *.log
-.DS_Store
-Thumbs.db
-.vercel/
-.eslintcache
-*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
 # IDE / Editor
 .vscode/
 .idea/
 *.swp
 *.swo
-# Sensitive outputs / debug artifacts
-*.txt
-!README.txt
+
+# Flutter build
+.flutter-plugins
+.flutter-plugins-dependencies
+.dart_tool/
+build/
+
+# Sensitive outputs
 output*.json
 hf_*.txt
 auth_results*.txt
 cors_results*.txt
-# Secrets and Keys
-.env
-*.json
-!flutter-client/android/app/google-services.json # Keep this if it's just the config, but usually safe to ignore too
+
+# 🚨 IMPORTANT SECRETS
 firebase-service-account.json

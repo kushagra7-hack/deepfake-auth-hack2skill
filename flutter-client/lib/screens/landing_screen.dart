@@ -1,16 +1,18 @@
 import 'dart:ui';
+import 'dart:math'; // For pi
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/starfield_background.dart';
+import '../widgets/constellation_background.dart';
 
 // --- Design Tokens ---
-const _kBg = Color(0xFF050505);
-const _kPrimary = Color(0xFF00BFFF);
-const _kSecondary = Color(0xFF8B5CF6);
-const _kSurface = Color(0x08FFFFFF); // 3% white
-const _kBorder = Color(0x14FFFFFF);  // 8% white
+const _kBg = Color(0xFF000000);
+const _kPrimary = Color(0xFFFFFFFF);
+const _kSecondary = Color(0xFFFFFFFF);
+const _kSurface = Color(0x1AFFFFFF); // 10% white
+const _kBorder = Color(0x33FFFFFF);  // 20% white
 
 // Legacy mappings for backwards compatibility
 const _kBlue = _kPrimary;
@@ -81,43 +83,7 @@ class _LandingScreenState extends State<LandingScreen> {
         onHover: (event) => setState(() => _mousePosition = event.position),
         child: Stack(
           children: [
-          // ── Starfield background ──────────────────────────────────────────
-          const Positioned.fill(
-            child: StarfieldBackground(),
-          ),
-
-          // Background ambient glows (layered above stars for depth)
-          Positioned(
-            top: -200,
-            left: -200,
-            child: Container(
-              width: 600,
-              height: 600,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _kBlue.withAlpha(12),
-                boxShadow: [
-                  BoxShadow(color: _kBlue.withAlpha(12), blurRadius: 150, spreadRadius: 150)
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 400,
-            right: -300,
-            child: Container(
-              width: 800,
-              height: 800,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _kPurple.withAlpha(10),
-                boxShadow: [
-                  BoxShadow(color: _kPurple.withAlpha(10), blurRadius: 200, spreadRadius: 200)
-                ],
-              ),
-            ),
-          ),
-
+          const ConstellationBackground(),
 
           // Main Scrollable Content
           CustomScrollView(
@@ -175,13 +141,10 @@ class _LandingScreenState extends State<LandingScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [_kBlue, Color(0xFF1D4ED8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: Colors.black,
                       borderRadius: BorderRadius.circular(10),
-                      boxShadow: [BoxShadow(color: _kBlue.withAlpha(80), blurRadius: 20, spreadRadius: -2)],
+                      border: Border.all(color: Colors.white.withAlpha(80)),
+                      boxShadow: [BoxShadow(color: Colors.white.withAlpha(40), blurRadius: 20, spreadRadius: -2)],
                     ),
                     child: const Icon(Icons.shield_outlined, color: Colors.white, size: 20),
                   ),
@@ -219,14 +182,14 @@ class _LandingScreenState extends State<LandingScreen> {
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20 : 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: _kBlue.withAlpha(20),
+                          color: Colors.black,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _kBlue.withAlpha(100)),
-                          boxShadow: [BoxShadow(color: _kBlue.withAlpha(40), blurRadius: 20)],
+                          border: Border.all(color: Colors.white.withAlpha(100)),
+                          boxShadow: [BoxShadow(color: Colors.white.withAlpha(40), blurRadius: 20)],
                         ),
                         child: Text(
                           isDesktop ? 'Deploy Now' : 'Login',
-                          style: GoogleFonts.outfit(color: _kBlue, fontWeight: FontWeight.bold, fontSize: isDesktop ? 14 : 12, letterSpacing: 1.0),
+                          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isDesktop ? 14 : 12, letterSpacing: 1.0),
                         ),
                       ),
                     ),
@@ -328,9 +291,7 @@ class HeroSection extends StatelessWidget {
     final rotY = (mousePosition.dx - centerX) * -0.0003;
     
     final transformMatrix = Matrix4.identity()
-      ..setEntry(3, 2, 0.001) // perspective
-      ..rotateX(rotX)
-      ..rotateY(rotY);
+      ..setEntry(3, 2, 0.001); // No base tilt or mouse rotation
 
     final leftContent = Transform(
       transform: transformMatrix,
@@ -361,39 +322,43 @@ class HeroSection extends StatelessWidget {
         ),
         const SizedBox(height: 32),
         // Heading
-        RichText(
-          text: TextSpan(
-            style: GoogleFonts.outfit(
-              fontSize: isDesktop ? 72 : 48,
-              height: 1.1,
-              letterSpacing: -2.0,
+        _InteractiveElement(
+          child: RichText(
+            text: TextSpan(
+              style: GoogleFonts.outfit(
+                fontSize: isDesktop ? 72 : 48,
+                height: 1.1,
+                letterSpacing: -2.0,
+              ),
+              children: const [
+                TextSpan(
+                  text: 'Detect The \n',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Undetectable',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
             ),
-            children: const [
-              TextSpan(
-                text: 'NEXUS_GATEWAY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              TextSpan(
-                text: ' —\nThe zero-trust\ndeepfake authentication\ngateway.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
           ),
         ),
         const SizedBox(height: 32),
         // Subtitle
-        Text(
-          'Upload media, analyze pixel-level anomalies via\nHugging Face, and verify context with Gemini AI.',
-          style: GoogleFonts.inter(
-            color: Colors.white60,
-            fontSize: isDesktop ? 18 : 15,
-            height: 1.6,
+        _InteractiveElement(
+          child: Text(
+            'Upload media, analyze pixel-level anomalies via\nHugging Face, and verify context with Gemini AI.',
+            style: GoogleFonts.inter(
+              color: Colors.white60,
+              fontSize: isDesktop ? 18 : 15,
+              height: 1.6,
+            ),
           ),
         ),
         const SizedBox(height: 48),
@@ -406,10 +371,11 @@ class HeroSection extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [_kBlue, _kPurple]),
+                    color: Colors.black,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withAlpha(80)),
                     boxShadow: [
-                      BoxShadow(color: _kBlue.withAlpha(60), blurRadius: 40, offset: const Offset(0, 10))
+                      BoxShadow(color: Colors.white.withAlpha(20), blurRadius: 40, offset: const Offset(0, 10))
                     ],
                   ),
                   child: Row(
@@ -438,15 +404,9 @@ class HeroSection extends StatelessWidget {
     );
 
     final rightContent = SizedBox(
-      width: isDesktop ? 500 : double.infinity,
-      height: 500,
-      child: Transform(
-        transform: Matrix4.identity()
-          ..setEntry(3, 2, 0.001)
-          ..rotateX(-rotX * 1.5) // Inverted for parallax
-          ..rotateY(-rotY * 1.5), // Inverted for parallax
-        alignment: FractionalOffset.center,
-        child: const Center(child: _FloatingHologram()),
+      width: isDesktop ? 700 : double.infinity,
+      child: Center(
+        child: _CinematicFeatureCard(mousePosition: mousePosition),
       ),
     );
 
@@ -472,67 +432,130 @@ class HeroSection extends StatelessWidget {
   }
 }
 
-class _FloatingHologram extends StatefulWidget {
-  const _FloatingHologram();
+class _CinematicFeatureCard extends StatefulWidget {
+  final Offset mousePosition;
+  const _CinematicFeatureCard({required this.mousePosition});
 
   @override
-  State<_FloatingHologram> createState() => _FloatingHologramState();
+  State<_CinematicFeatureCard> createState() => _CinematicFeatureCardState();
 }
 
-class _FloatingHologramState extends State<_FloatingHologram> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
-
-    _animation = Tween<double>(begin: -15.0, end: 15.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _CinematicFeatureCardState extends State<_CinematicFeatureCard> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _animation.value),
-          child: Container(
-            width: 300,
-            height: 300,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  _kPrimary.withAlpha(200),
-                  _kSecondary.withAlpha(100),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.6, 1.0],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _kPrimary.withAlpha(80),
-                  blurRadius: 100,
-                  spreadRadius: 40,
+    // Calculate relative tilt based on mouse position
+    // We assume the card is roughly in the center-right of the screen
+    final size = MediaQuery.of(context).size;
+    final cardCenterX = size.width * 0.7; // Estimated center of the card
+    final cardCenterY = size.height * 0.5;
+
+    final dx = (widget.mousePosition.dx - cardCenterX) / (size.width * 0.3);
+    final dy = (widget.mousePosition.dy - cardCenterY) / (size.height * 0.3);
+
+    // Full 360-degree rotation based on mouse position (Full Physics)
+    final tiltX = _hovered ? (-dy * pi * 2).clamp(-pi * 2, pi * 2) : 0.0;
+    final tiltY = _hovered ? (dx * pi * 2).clamp(-pi * 2, pi * 2) : 0.0;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(seconds: 2),
+        curve: Curves.elasticOut,
+        transformAlignment: Alignment.center, // Ensures centered rotation
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.001)
+          ..rotateX(tiltX)
+          ..rotateY(tiltY),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.white.withAlpha(_hovered ? 30 : 15),
+              blurRadius: _hovered ? 100 : 40,
+              spreadRadius: 0,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            child: Stack(
+              children: [
+                // ── Image with cinematic treatment ──
+                AspectRatio(
+                  aspectRatio: 1.5,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Base Image
+                      ColorFiltered(
+                        colorFilter: const ColorFilter.matrix([
+                          1.2, 0, 0, 0, -20,
+                          0, 1.2, 0, 0, -20,
+                          0, 0, 1.2, 0, -20,
+                          0, 0, 0, 1, 0,
+                        ]),
+                        child: Image.asset(
+                          'assets/images/hero_feature.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.black,
+                            child: const Center(child: Icon(Icons.image_not_supported, color: Colors.white10)),
+                          ),
+                        ),
+                      ),
+                      // Vignette
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withAlpha(180),
+                            ],
+                            stops: const [0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                      // Reflection overlay that follows mouse
+                      Positioned.fill(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 500),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment(tiltY, tiltX),
+                              end: Alignment(-tiltY, -tiltX),
+                              colors: [
+                                Colors.white.withAlpha(20),
+                                Colors.transparent,
+                                Colors.black.withAlpha(40),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // ── Inner Glow Border ──
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withAlpha(_hovered ? 50 : 20),
+                      width: 1.5,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -1205,7 +1228,7 @@ class CrossPlatformSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(32),
               border: Border.all(color: _kBorder),
               gradient: LinearGradient(
-                colors: [_kSurface, _kPrimary.withAlpha(20)],
+                colors: [_kSurface, Colors.white.withAlpha(40)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
@@ -1764,23 +1787,15 @@ class _PulsingCTAButtonState extends State<_PulsingCTAButton>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 22),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_kBlue, _kPurple],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
+                  color: Colors.black,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withAlpha(80)),
                   boxShadow: [
                     BoxShadow(
-                      color: _kBlue.withAlpha(_isHovered ? 100 : 60),
+                      color: Colors.white.withAlpha(_isHovered ? 80 : 40),
                       blurRadius: _isHovered ? 50 : 30,
                       spreadRadius: _isHovered ? 4 : 0,
                       offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: _kPurple.withAlpha(_isHovered ? 60 : 30),
-                      blurRadius: 30,
-                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
@@ -1804,6 +1819,32 @@ class _PulsingCTAButtonState extends State<_PulsingCTAButton>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+class _InteractiveElement extends StatefulWidget {
+  final Widget child;
+  const _InteractiveElement({required this.child});
+
+  @override
+  State<_InteractiveElement> createState() => _InteractiveElementState();
+}
+
+class _InteractiveElementState extends State<_InteractiveElement> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.identity()
+          ..translate(_hovered ? 15.0 : 0.0, 0.0, 0.0), // Hover offset
+        child: widget.child,
       ),
     );
   }

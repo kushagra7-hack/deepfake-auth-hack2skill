@@ -29,12 +29,12 @@ class NexusGatewayApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF030303), // Deep black background
+        scaffoldBackgroundColor: Colors.black, // Pure black background
         textTheme: GoogleFonts.spaceGroteskTextTheme(ThemeData.dark().textTheme),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF00BFFF), // Neon cyan/green
-          secondary: Color(0xFF00BFFF), // Neon blue
-          surface: Color(0xFF030303),
+          primary: Colors.white, // White primary
+          secondary: Colors.white, // White secondary
+          surface: Colors.black,
         ),
         scrollbarTheme: ScrollbarThemeData(
           thumbVisibility: WidgetStateProperty.all(true),
@@ -42,9 +42,9 @@ class NexusGatewayApp extends StatelessWidget {
           radius: const Radius.circular(20),
           thumbColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.hovered) || states.contains(WidgetState.dragged)) {
-              return const Color(0xFF00BFFF); // Bright glow on interaction
+              return Colors.white; // Bright white on interaction
             }
-            return const Color(0xFF00BFFF).withAlpha(120); // Dim glow idle
+            return Colors.white.withAlpha(120); // Semi-transparent white idle
           }),
           crossAxisMargin: 4,
           minThumbLength: 50,
@@ -80,7 +80,7 @@ class AuthWrapper extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
-              child: CircularProgressIndicator(color: Color(0xFF00BFFF)),
+              child: CircularProgressIndicator(color: Colors.white),
             ),
           );
         }
@@ -129,8 +129,8 @@ class _GlobalCursorWrapperState extends State<GlobalCursorWrapper> {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF00BFFF).withAlpha(80), // Brighter central glow for text flashing
-                      const Color(0xFF00BFFF).withAlpha(20), // Soft mid glow
+                      Colors.white.withAlpha(50), // Brighter central glow for text flashing
+                      Colors.white.withAlpha(10), // Soft mid glow
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.4, 1.0],
@@ -168,8 +168,8 @@ class _HoverGlowTextState extends State<HoverGlowText> {
         duration: const Duration(milliseconds: 200),
         style: widget.style.copyWith(
           shadows: _isHovered ? [
-            Shadow(color: const Color(0xFF00BFFF), blurRadius: 10),
-            Shadow(color: const Color(0xFF00BFFF), blurRadius: 30),
+            Shadow(color: Colors.white.withAlpha(100), blurRadius: 10),
+            Shadow(color: Colors.white.withAlpha(50), blurRadius: 30),
           ] : [],
         ),
         textAlign: widget.textAlign ?? TextAlign.left,

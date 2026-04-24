@@ -7,16 +7,16 @@ import '../main.dart'; // For HoverGlowText
 import 'dart:async';
 
 // ── Color tokens — Obsidian & Holographic Glass ─────────────────────────────
-const _kBg         = Color(0xFF050505);  // Pure Obsidian
-const _kBgDeep     = Color(0xFF0D0714);  // Dark violet-black (radial center)
-const _kPrimary    = Color(0xFF00BFFF);  // Holographic Cyan
-const _kSecondary  = Color(0xFF8B5CF6);  // Soft Neon Violet
-const _kSurface    = Color(0x08FFFFFF);  // 3% white — frosted glass
-const _kBorderCol  = Color(0x14FFFFFF);  // 8% white — glass edge
-const _kNeutral400 = Color(0xFF9CA3AF);
-const _kNeutral500 = Color(0xFF6B7280);
-const _kRed        = Color(0xFFE11D48);
-const _kRose       = Color(0xFFE11D48);
+const _kBg         = Color(0xFF000000);  // Pure Black
+const _kBgDeep     = Color(0xFF000000);  // Pure Black
+const _kPrimary    = Color(0xFFFFFFFF);  // White
+const _kSecondary  = Color(0xFFFFFFFF);  // White
+const _kSurface    = Color(0x1AFFFFFF);  // 10% white
+const _kBorderCol  = Color(0x33FFFFFF);  // 20% white
+const _kNeutral400 = Color(0xFFA1A1AA);
+const _kNeutral500 = Color(0xFF71717A);
+const _kRed        = Color(0xFFFFFFFF);  // Use White for errors too (or White with opacity)
+const _kRose       = Color(0xFFFFFFFF);
 // Legacy aliases
 const _kBlack      = _kBg;
 const _kBlue       = _kPrimary;
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen>
         content: Row(
           children: [
             Icon(Icons.warning_amber_rounded,
-                color: const Color(0xFFFCA5A5), size: 16),
+                color: Colors.white70, size: 16),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -265,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen>
       children: [
         SizedBox(
           width: MediaQuery.of(context).size.width * 0.45,
-          child: _buildFormSection(),
+          child: SingleChildScrollView(child: _buildFormSection()),
         ),
         Expanded(child: _buildImageSection()),
       ],
@@ -344,7 +344,7 @@ class _LoginScreenState extends State<LoginScreen>
                   HoverGlowText(
                     _isRegisterMode
                         ? 'Begin your\njourney.'
-                        : 'Access your\nterminal.',
+                        : 'REALITY IS DATA.',
                     style: GoogleFonts.outfit(
                       color: Colors.white,
                       fontSize: 36,
@@ -357,7 +357,7 @@ class _LoginScreenState extends State<LoginScreen>
                   HoverGlowText(
                     _isRegisterMode
                         ? 'Create an account to access our suite of advanced security tools and analytics.'
-                        : 'Authenticate to securely monitor and analyze synthetic media anomalies.',
+                        : 'TRUST IS EARNED. WE VERIFY BOTH.',
                     style: GoogleFonts.spaceGrotesk(
                       color: _kNeutral400,
                       fontSize: 15,
@@ -478,8 +478,8 @@ class _LoginScreenState extends State<LoginScreen>
         Container(color: const Color(0xFF111111)),
 
         // Network/circuit image via NetworkImage (matches React unsplash URL)
-        Image.network(
-          'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=1920',
+        Image.asset(
+          'assets/images/login_bg.jpg',
           fit: BoxFit.cover,
           color: Colors.black.withAlpha(130),
           colorBlendMode: BlendMode.darken,
@@ -664,7 +664,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildPrimaryButton() {
-    // Matches React's btn-luxury: gradient background with glow shadow
     return SizedBox(
       height: 56,
       child: GestureDetector(
@@ -674,23 +673,16 @@ class _LoginScreenState extends State<LoginScreen>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            gradient: _isLoading
-                ? null
-                : const LinearGradient(
-                    colors: [_kPrimary, _kSecondary],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-            color: _isLoading ? _kPrimary.withAlpha(100) : null,
+            color: _kBlack,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _kPrimary.withOpacity(0.5)),
             boxShadow: _isLoading
                 ? null
                 : [
                     BoxShadow(
-                      color: _kPrimary.withAlpha(60),
-                      blurRadius: 24,
+                      color: _kPrimary.withOpacity(0.1),
+                      blurRadius: 20,
                       spreadRadius: 2,
-                      offset: const Offset(0, 4),
                     ),
                   ],
           ),
@@ -809,10 +801,10 @@ class _GoogleLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width;
-    final blue = Paint()..color = const Color(0xFF4285F4);
-    final green = Paint()..color = const Color(0xFF34A853);
-    final yellow = Paint()..color = const Color(0xFFFBBC05);
-    final red = Paint()..color = const Color(0xFFEA4335);
+    final blue = Paint()..color = Colors.white;
+    final green = Paint()..color = Colors.white70;
+    final yellow = Paint()..color = Colors.white60;
+    final red = Paint()..color = Colors.white54;
 
     // Scale factor: React SVG viewBox is 24x24
     final scale = s / 24;

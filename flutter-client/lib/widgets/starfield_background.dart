@@ -157,8 +157,8 @@ class _StarfieldPainter extends CustomPainter {
       final alpha = (star.opacity * 255).toInt().clamp(0, 255);
       // Close stars are more blue-white, far stars are dim white
       final Color starColor = star.z > 0.6
-          ? Color.fromARGB(alpha, 180, 230, 255)  // Close: light blue-white
-          : Color.fromARGB(alpha, 140, 180, 220); // Far: dimmer blue
+          ? Color.fromARGB(alpha, 255, 255, 255)  // Close: pure white
+          : Color.fromARGB(alpha, 200, 200, 200); // Far: dim white
 
       paint.color = starColor;
 

@@ -2,11 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-const _kBg = Color(0xFF050505);
-const _kPrimary = Color(0xFF00BFFF);
-const _kSecondary = Color(0xFF8B5CF6);
-const _kSurface = Color(0x08FFFFFF);
-const _kBorder = Color(0x14FFFFFF);
+const _kBg = Color(0xFF000000);
+const _kPrimary = Color(0xFFFFFFFF);
+const _kSecondary = Color(0xFFFFFFFF);
+const _kSurface = Color(0x1AFFFFFF);
+const _kBorder = Color(0x33FFFFFF);
 const _kZinc400 = Color(0xFFA1A1AA);
 
 class ApiDocsScreen extends StatefulWidget {
@@ -238,7 +238,7 @@ class _EndpointCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final methodColor = method == 'POST' ? const Color(0xFF10B981) : const Color(0xFF3B82F6);
+    final methodColor = Colors.white;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -455,7 +455,7 @@ class _EndpointCard extends StatelessWidget {
                       child: Text(
                         response,
                         style: GoogleFonts.spaceMono(
-                          color: const Color(0xFFA6E22E),
+                          color: Colors.white70,
                           fontSize: 14,
                           height: 1.6,
                         ),
