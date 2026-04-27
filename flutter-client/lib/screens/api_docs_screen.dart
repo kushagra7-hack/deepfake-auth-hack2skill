@@ -102,30 +102,33 @@ class _ApiDocsScreenState extends State<ApiDocsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // REST API Section
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: _kSecondary.withAlpha(20),
-                                    borderRadius: BorderRadius.circular(8),
+                            LayoutBuilder(builder: (context, restConstraints) {
+                              final isSmall = restConstraints.maxWidth < 600;
+                              return Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: _kSecondary.withAlpha(20),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(Icons.terminal_rounded, color: _kSecondary, size: isSmall ? 20 : 24),
                                   ),
-                                  child: const Icon(Icons.terminal_rounded, color: _kSecondary, size: 24),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(
-                                    'REST API Reference',
-                                    style: GoogleFonts.outfit(
-                                      color: Colors.white,
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -1,
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      'REST API Reference',
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontSize: isSmall ? 28 : 40,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -1,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              );
+                            }),
                             const SizedBox(height: 24),
                             Text(
                               'The core endpoints utilized by our frontend applications to communicate with the FastAPI Orchestrator. Every request is strictly authenticated using Firebase Bearer tokens injected into headers.',

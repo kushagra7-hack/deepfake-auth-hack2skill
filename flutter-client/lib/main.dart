@@ -106,38 +106,49 @@ class GlobalCursorWrapper extends StatefulWidget {
 }
 
 class _GlobalCursorWrapperState extends State<GlobalCursorWrapper> {
-  Offset _mousePosition = Offset.zero;
+  final ValueNotifier<Offset> _mousePosition = ValueNotifier(Offset.zero);
+
+  @override
+  void dispose() {
+    _mousePosition.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onHover: (event) => setState(() => _mousePosition = event.position),
+      onHover: (event) => _mousePosition.value = event.position,
       child: Stack(
         children: [
-          widget.child,
+          RepaintBoundary(child: widget.child),
           // Global flashlight / cursor glow effect
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 100),
-            curve: Curves.easeOutCubic,
-            left: _mousePosition.dx - 300,
-            top: _mousePosition.dy - 300,
-            child: IgnorePointer(
-              child: Container(
-                width: 600,
-                height: 600,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withAlpha(50), // Brighter central glow for text flashing
-                      Colors.white.withAlpha(10), // Soft mid glow
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.4, 1.0],
+          ValueListenableBuilder<Offset>(
+            valueListenable: _mousePosition,
+            builder: (context, pos, _) {
+              return AnimatedPositioned(
+                duration: const Duration(milliseconds: 100),
+                curve: Curves.easeOutCubic,
+                left: pos.dx - 300,
+                top: pos.dy - 300,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 600,
+                    height: 600,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.white.withAlpha(50),
+                          Colors.white.withAlpha(10),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.4, 1.0],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),

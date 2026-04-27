@@ -64,8 +64,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _loadHistory() async {
-    final history = await _apiService.getScanHistory();
-    setState(() => _history = history);
+    try {
+      final history = await _apiService.getScanHistory();
+      if (mounted) {
+        setState(() => _history = history);
+      }
+    } catch (e) {
+      debugPrint('Error loading scan history: $e');
+      // Gracefully handle error by keeping history empty
+      if (mounted) {
+        setState(() => _history = []);
+      }
+    }
   }
 
   Future<void> _pickFile() async {
@@ -73,8 +83,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       type: _mediaType == 'IMAGE' 
           ? FileType.image 
           : _mediaType == 'VIDEO' 
-              ? FileType.video 
-              : FileType.audio,
+          ? FileType.video 
+          : FileType.audio,
       withData: true,
     );
     if (result != null) {
@@ -299,12 +309,13 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'ANALYZING NEURAL PATTERNS • NVIDIA L40S ACCELERATED',
+              'ANALYZING NEURAL PATTERNS',
               style: GoogleFonts.outfit(
                 color: kGray400,
                 fontSize: 10,
                 letterSpacing: 1,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
             Container(
@@ -340,15 +351,64 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // ── HEADER ──────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
-    final bool isDesktop = MediaQuery.of(context).size.width > 800;
-
-    if (isDesktop) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final isMobile = constraints.maxWidth < 700;
+      if (isMobile) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'NEXUS_GATEWAY',
+                        style: GoogleFonts.outfit(
+                          color: kWhite,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'DEEPFAKE DETECTION ENGINE',
+                        style: GoogleFonts.outfit(
+                          color: kGray400,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
+                    const SizedBox(width: 8),
+                    _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: _buildNavCapsule(),
+            ),
+          ],
+        );
+      }
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Brand
           SizedBox(
-            width: 250,
+            width: 200,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -360,6 +420,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   'DEEPFAKE DETECTION ENGINE',
@@ -369,82 +430,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                     fontWeight: FontWeight.w500,
                     letterSpacing: 1,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          
-          // Navigation Tabs
-          _buildNavCapsule(),
-          
-          // Actions
-          SizedBox(
-            width: 250,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
-                const SizedBox(width: 12),
-                _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
-              ],
-            ),
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          Flexible(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: _buildNavCapsule())),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              // Brand
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'NEXUS_GATEWAY',
-                      style: GoogleFonts.outfit(
-                        color: kWhite,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    Text(
-                      'DEEPFAKE DETECTION ENGINE',
-                      style: GoogleFonts.outfit(
-                        color: kGray400,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Actions
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
-                  const SizedBox(width: 12),
-                  _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
-                ],
-              ),
+              _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
+              const SizedBox(width: 12),
+              _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
             ],
           ),
-          const SizedBox(height: 16),
-          // Navigation Tabs
-          SizedBox(
-            width: double.infinity,
-            child: _buildNavCapsule(),
-          ),
         ],
       );
-    }
+    });
   }
 
   Widget _buildNavCapsule() {
@@ -456,33 +458,30 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: kGlassBorder),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: items.asMap().entries.map((e) {
-            final isSelected = _navIndex == e.key;
-            return GestureDetector(
-              onTap: () => setState(() => _navIndex = e.key),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? kWhite : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  e.value,
-                  style: GoogleFonts.outfit(
-                    color: isSelected ? kPureBlack : kGray400,
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: items.asMap().entries.map((e) {
+          final isSelected = _navIndex == e.key;
+          return GestureDetector(
+            onTap: () => setState(() => _navIndex = e.key),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? kWhite : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                e.value,
+                style: GoogleFonts.outfit(
+                  color: isSelected ? kPureBlack : kGray400,
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -504,68 +503,43 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // ── ROW 1 ───────────────────────────────────────────────────────────────────
   Widget _buildRow1() {
-    final bool isDesktop = MediaQuery.of(context).size.width > 800;
-    if (isDesktop) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final isMobile = constraints.maxWidth < 700;
+      if (isMobile) {
+        return Column(
+          children: [
+            _buildPayloadIngestion(isExpanded: false),
+            const SizedBox(height: 16),
+            _buildScanResultMain(isExpanded: false),
+            const SizedBox(height: 16),
+            _buildUploadPreview(isExpanded: false),
+          ],
+        );
+      }
       return SizedBox(
         height: 480,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(flex: 3, child: _buildPayloadIngestion()),
+            Expanded(flex: 3, child: _buildPayloadIngestion(isExpanded: true)),
             const SizedBox(width: 24),
-            Expanded(flex: 4, child: _buildScanResultMain()),
+            Expanded(flex: 4, child: _buildScanResultMain(isExpanded: true)),
             const SizedBox(width: 24),
-            Expanded(flex: 3, child: _buildUploadPreview()),
+            Expanded(flex: 3, child: _buildUploadPreview(isExpanded: true)),
           ],
         ),
       );
-    } else {
-      return Column(
-        children: [
-          SizedBox(height: 480, width: double.infinity, child: _buildPayloadIngestion()),
-          const SizedBox(height: 24),
-          SizedBox(height: 480, width: double.infinity, child: _buildScanResultMain()),
-          const SizedBox(height: 24),
-          SizedBox(height: 480, width: double.infinity, child: _buildUploadPreview()),
-        ],
-      );
-    }
+    });
   }
 
-  Widget _buildPayloadIngestion() {
+  Widget _buildPayloadIngestion({bool isExpanded = true}) {
     return GlassCard(
       title: 'PAYLOAD INGESTION',
+      isExpanded: isExpanded,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: _pickFile,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border.all(color: kGlassBorder, style: BorderStyle.solid),
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.white.withOpacity(0.01),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.cloud_upload_outlined, color: kGray400, size: 32),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Drag & Drop or Click to Browse',
-                      style: GoogleFonts.outfit(color: kWhite, fontSize: 13),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'IMAGE • VIDEO • AUDIO',
-                      style: GoogleFonts.outfit(color: kGray600, fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          _buildDropZone(isExpanded: isExpanded),
           const SizedBox(height: 16),
           _buildMediaTypeTabs(),
           const SizedBox(height: 16),
@@ -585,34 +559,63 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Widget _buildDropZone({bool isExpanded = false}) {
+    return GestureDetector(
+      onTap: _pickFile,
+      child: Container(
+        width: double.infinity,
+        height: isExpanded ? 200 : null,
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          border: Border.all(color: kGlassBorder, style: BorderStyle.solid),
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white.withOpacity(0.01),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_upload_outlined, color: kGray400, size: 32),
+            const SizedBox(height: 12),
+            Text(
+              'Drag & Drop or Click to Browse',
+              style: GoogleFonts.outfit(color: kWhite, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'IMAGE • VIDEO • AUDIO',
+              style: GoogleFonts.outfit(color: kGray600, fontSize: 10),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMediaTypeTabs() {
     final types = ['IMAGE', 'VIDEO', 'AUDIO'];
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: types.map((t) {
         final isSelected = _mediaType == t;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() {
-              _mediaType = t;
-              _selectedFile = null;
-            }),
-            child: Container(
-              margin: EdgeInsets.only(right: t == 'AUDIO' ? 0 : 8),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? kWhite.withOpacity(0.05) : Colors.transparent,
-                border: Border.all(color: isSelected ? kWhite : kGlassBorder),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  t,
-                  style: GoogleFonts.outfit(
-                    color: isSelected ? kWhite : kGray400,
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
+        return GestureDetector(
+          onTap: () => setState(() {
+            _mediaType = t;
+            _selectedFile = null;
+          }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? kWhite.withOpacity(0.05) : Colors.transparent,
+              border: Border.all(color: isSelected ? kWhite : kGlassBorder),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              t,
+              style: GoogleFonts.outfit(
+                color: isSelected ? kWhite : kGray400,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
@@ -650,153 +653,182 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildScanResultMain() {
+  Widget _buildScanResultMain({bool isExpanded = true}) {
     final score = _currentResult?.threatScore ?? 0.0;
     final verdict = _currentResult?.geminiVerdict ?? 'AWAITING SCAN';
-    
-    return GlassCard(
-      title: 'SCAN RESULT',
-      subtitle: 'LIVE ANALYSIS OUTPUT',
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Spacer(),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Container(
-                    width: 180 * _pulseAnimation.value,
-                    height: 180 * _pulseAnimation.value,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: kWhite.withOpacity(0.1 / _pulseAnimation.value),
-                        width: 2,
-                      ),
+
+    final content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(height: 8),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) {
+                return Container(
+                  width: 180 * _pulseAnimation.value,
+                  height: 180 * _pulseAnimation.value,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: kWhite.withOpacity(0.1 / _pulseAnimation.value),
+                      width: 2,
                     ),
-                  );
-                },
+                  ),
+                );
+              },
+            ),
+            Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: kWhite.withOpacity(0.1), width: 1),
               ),
-              Container(
-                width: 160,
-                height: 160,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: kWhite.withOpacity(0.1), width: 1),
-                ),
-                child: CustomPaint(
-                  painter: _CircularScorePainter(score / 100),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          score.toStringAsFixed(1),
-                          style: GoogleFonts.outfit(
-                            color: kWhite,
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                          ),
+              child: CustomPaint(
+                painter: _CircularScorePainter(score / 100),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        score.toStringAsFixed(1),
+                        style: GoogleFonts.outfit(
+                          color: kWhite,
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
                         ),
-                        Text(
-                          '/100',
-                          style: GoogleFonts.outfit(
-                            color: kGray400,
-                            fontSize: 14,
-                          ),
+                      ),
+                      Text(
+                        '/100',
+                        style: GoogleFonts.outfit(
+                          color: kGray400,
+                          fontSize: 14,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'THREAT SCORE',
-                          style: GoogleFonts.outfit(
-                            color: kGray600,
-                            fontSize: 10,
-                            letterSpacing: 1.5,
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'THREAT SCORE',
+                        style: GoogleFonts.outfit(
+                          color: kGray600,
+                          fontSize: 10,
+                          letterSpacing: 1.5,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: kWhite.withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              verdict.toUpperCase(),
-              style: GoogleFonts.outfit(
-                color: kWhite,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: kWhite.withOpacity(0.2)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            verdict.toUpperCase(),
+            style: GoogleFonts.outfit(
+              color: kWhite,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
-          Text(
-            'CONFIDENCE: ${score.toStringAsFixed(1)}%',
-            style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
-          ),
-          const Spacer(),
-          _buildStatsRow(),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'CONFIDENCE: ${score.toStringAsFixed(1)}%',
+          style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
+        ),
+        const SizedBox(height: 24),
+        _buildStatsRow(),
+      ],
+    );
+
+    return GlassCard(
+      title: 'SCAN RESULT',
+      subtitle: 'LIVE ANALYSIS OUTPUT',
+      isExpanded: isExpanded,
+      child: content,
     );
   }
 
   Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(child: _buildMiniStat('TOTAL SCANS', _history.length.toString(), Icons.layers)),
-        Container(width: 1, height: 40, color: kGlassBorder),
-        Expanded(child: _buildMiniStat('DEEPFAKE RATE', '32.3%', Icons.security)),
-        Container(width: 1, height: 40, color: kGlassBorder),
-        Expanded(child: _buildMiniStat('ACCURACY', '91.4%', Icons.check_circle_outline)),
-      ],
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final isMobile = constraints.maxWidth < 450;
+      if (isMobile) {
+        return Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
+          children: [
+            _buildMiniStat('TOTAL SCANS', _history.length.toString(), Icons.layers),
+            _buildMiniStat('DEEPFAKE RATE', '32.3%', Icons.security),
+            _buildMiniStat('ACCURACY', '91.4%', Icons.check_circle_outline),
+          ],
+        );
+      }
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Expanded(child: _buildMiniStat('TOTAL SCANS', _history.length.toString(), Icons.layers)),
+          Container(width: 1, height: 24, color: kWhite.withOpacity(0.1)),
+          Expanded(child: _buildMiniStat('DEEPFAKE RATE', '32.3%', Icons.security)),
+          Container(width: 1, height: 24, color: kWhite.withOpacity(0.1)),
+          Expanded(child: _buildMiniStat('ACCURACY', '91.4%', Icons.check_circle_outline)),
+        ],
+      );
+    });
   }
 
   Widget _buildMiniStat(String label, String value, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(icon, color: kGray400, size: 14),
+              Icon(icon, color: kGray400, size: 12),
               const SizedBox(width: 4),
-              Expanded(
+              Flexible(
                 child: Text(
-                  label, 
-                  style: GoogleFonts.outfit(color: kGray600, fontSize: 9, letterSpacing: 0.5),
+                  label,
+                  style: GoogleFonts.outfit(color: kGray600, fontSize: 8, letterSpacing: 0.3),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(value, style: GoogleFonts.outfit(color: kWhite, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: GoogleFonts.outfit(color: kWhite, fontSize: 14, fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildUploadPreview() {
+  Widget _buildUploadPreview({bool isExpanded = true}) {
     return GlassCard(
       title: 'UPLOAD PREVIEW',
+      isExpanded: isExpanded,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Container(
             height: 180,
             width: double.infinity,
@@ -830,14 +862,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.outfit(color: kGray600, fontSize: 10)),
+          Flexible(child: Text(label, style: GoogleFonts.outfit(color: kGray600, fontSize: 10), overflow: TextOverflow.ellipsis)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               value, 
               style: GoogleFonts.outfit(color: kWhite, fontSize: 11, fontWeight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
-              maxLines: 1,
               textAlign: TextAlign.right,
             ),
           ),
@@ -848,84 +879,117 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // ── ROW 2 ───────────────────────────────────────────────────────────────────
   Widget _buildRow2() {
-    final bool isDesktop = MediaQuery.of(context).size.width > 800;
-    if (isDesktop) {
-      return IntrinsicHeight(
+    return LayoutBuilder(builder: (context, constraints) {
+      final isMobile = constraints.maxWidth < 700;
+      if (isMobile) {
+        // On mobile, cards are in an unbounded scroll context.
+        // isExpanded:false prevents GlassCard from using Expanded/Spacer
+        // which would crash inside SingleChildScrollView.
+        return Column(
+          children: [
+            GlassCard(
+              title: 'NVIDIA AI REASONING',
+              isExpanded: false,
+              child: _buildAiReasoningContent(isExpanded: false),
+            ),
+            const SizedBox(height: 16),
+            GlassCard(
+              title: 'GEMINI VERDICT',
+              isExpanded: false,
+              child: _buildGeminiVerdictContent(isExpanded: false),
+            ),
+          ],
+        );
+      }
+      // Desktop: fixed 240px height, cards stretch to fill.
+      return SizedBox(
+        height: 240,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(flex: 5, child: _buildAiReasoning()),
+            Expanded(flex: 5, child: _buildAiReasoning(isExpanded: true)),
             const SizedBox(width: 24),
-            Expanded(flex: 5, child: _buildGeminiVerdict()),
+            Expanded(flex: 5, child: _buildGeminiVerdict(isExpanded: true)),
           ],
         ),
       );
-    } else {
-      return Column(
-        children: [
-          SizedBox(width: double.infinity, child: _buildAiReasoning()),
-          const SizedBox(height: 24),
-          SizedBox(width: double.infinity, child: _buildGeminiVerdict()),
-        ],
-      );
-    }
+    });
   }
 
-  Widget _buildAiReasoning() {
-    final reasoning = _currentResult?.geminiReasoning ?? 'No analysis performed yet. Please upload a payload and initiate a scan to receive AI reasoning output.';
+  // Desktop card wrapper (isExpanded:true = Expanded inside GlassCard,
+  // which is safe because the parent Row has a bounded height of 240px)
+  Widget _buildAiReasoning({bool isExpanded = true}) {
     return GlassCard(
       title: 'NVIDIA AI REASONING',
-      isExpanded: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            reasoning,
-            style: GoogleFonts.outfit(
-              color: kGray400,
-              fontSize: 13,
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildPrimaryButton(
-            label: 'VIEW FULL ANALYSIS',
-            icon: Icons.open_in_full,
-            onPressed: () {},
-            isCompact: true,
-          ),
-        ],
-      ),
+      isExpanded: isExpanded,
+      child: _buildAiReasoningContent(isExpanded: isExpanded),
     );
   }
 
-  Widget _buildGeminiVerdict() {
+  // Shared content, reused by both desktop (Expanded) and mobile (min) card.
+  Widget _buildAiReasoningContent({bool isExpanded = true}) {
+    final reasoning = _currentResult?.geminiReasoning ?? 'No analysis performed yet. Please upload a payload and initiate a scan to receive AI reasoning output.';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 120),
+          child: SingleChildScrollView(
+            child: Text(
+              reasoning,
+              style: GoogleFonts.outfit(
+                color: kGray400,
+                fontSize: 13,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildPrimaryButton(
+          label: 'VIEW FULL ANALYSIS',
+          icon: Icons.open_in_full,
+          onPressed: () {},
+          isCompact: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGeminiVerdict({bool isExpanded = true}) {
     final isDeepfake = _currentResult?.geminiVerdict == 'DEEPFAKE';
     return GlassCard(
       title: 'GEMINI VERDICT',
-      isExpanded: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _currentResult != null ? (isDeepfake ? 'DEEPFAKE DETECTED' : 'AUTHENTIC CONTENT') : 'AWAITING ANALYSIS',
-                style: GoogleFonts.outfit(
-                  color: kWhite,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _currentResult != null 
-                  ? 'The content has been classified with high confidence.'
-                  : 'Upload a payload to see the verdict.',
-                style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
-              ),
-            ],
+      isExpanded: isExpanded,
+      child: _buildGeminiVerdictContent(isExpanded: isExpanded),
+    );
+  }
+
+  Widget _buildGeminiVerdictContent({bool isExpanded = true}) {
+    final isDeepfake = _currentResult?.geminiVerdict == 'DEEPFAKE';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+          Text(
+            _currentResult != null ? (isDeepfake ? 'DEEPFAKE DETECTED' : 'AUTHENTIC CONTENT') : 'AWAITING ANALYSIS',
+            style: GoogleFonts.outfit(
+              color: kWhite,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _currentResult != null
+                ? 'The content has been classified with high confidence.'
+                : 'Upload a payload to see the verdict.',
+            style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           if (_currentResult != null) ...[
             const SizedBox(height: 12),
@@ -946,16 +1010,20 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               Icon(Icons.access_time, color: kGray600, size: 14),
               const SizedBox(width: 6),
-              Text(
-                '23 Apr 2026, 05:24:15 PM',
-                style: GoogleFonts.outfit(color: kGray600, fontSize: 11),
+              Flexible(
+                child: Text(
+                  '23 Apr 2026, 05:24:15 PM',
+                  style: GoogleFonts.outfit(color: kGray600, fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
         ],
-      ),
-    );
+      );
   }
+
+
 
   // ── ROW 3 ───────────────────────────────────────────────────────────────────
   Widget _buildRow3() {
@@ -964,35 +1032,16 @@ class _DashboardScreenState extends State<DashboardScreen>
       isExpanded: false,
       child: Column(
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Container(
-                  width: math.max(constraints.maxWidth, 800.0),
-                  decoration: BoxDecoration(
-                    color: kWhite.withOpacity(0.02),
-                    border: Border.all(color: kGlassBorder),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildTableHeader(),
-                      const Divider(color: kGlassBorder, height: 1),
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _history.length.clamp(0, 5),
-                        separatorBuilder: (context, index) => const Divider(color: kGlassBorder, height: 1),
-                        itemBuilder: (context, index) {
-                          final scan = _history[index];
-                          return _buildTableRow(scan);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
+          _buildTableHeader(),
+          const Divider(color: kGlassBorder, height: 1),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _history.length.clamp(0, 5),
+            separatorBuilder: (context, index) => const Divider(color: kGlassBorder, height: 1),
+            itemBuilder: (context, index) {
+              final scan = _history[index];
+              return _buildTableRow(scan);
             },
           ),
           const SizedBox(height: 16),
@@ -1013,43 +1062,71 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildTableHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(flex: 1, child: Text('ID', style: _tableHeaderStyle)),
-          Expanded(flex: 3, child: Text('FILE NAME', style: _tableHeaderStyle)),
-          Expanded(flex: 1, child: Text('TYPE', style: _tableHeaderStyle)),
-          Expanded(flex: 1, child: Text('THREAT SCORE', style: _tableHeaderStyle)),
-          Expanded(flex: 1, child: Text('VERDICT', style: _tableHeaderStyle)),
-          Expanded(flex: 2, child: Text('TIME', style: _tableHeaderStyle)),
-        ],
-      ),
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < 600) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(flex: 3, child: Text('FILE NAME', style: _tableHeaderStyle)),
+              Expanded(flex: 2, child: Text('SCORE', style: _tableHeaderStyle)),
+              Expanded(flex: 2, child: Text('VERDICT', style: _tableHeaderStyle)),
+            ],
+          ),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(flex: 1, child: Text('ID', style: _tableHeaderStyle)),
+            Expanded(flex: 3, child: Text('FILE NAME', style: _tableHeaderStyle)),
+            Expanded(flex: 1, child: Text('TYPE', style: _tableHeaderStyle)),
+            Expanded(flex: 1, child: Text('THREAT SCORE', style: _tableHeaderStyle)),
+            Expanded(flex: 1, child: Text('VERDICT', style: _tableHeaderStyle)),
+            Expanded(flex: 2, child: Text('TIME', style: _tableHeaderStyle)),
+          ],
+        ),
+      );
+    });
   }
 
   TextStyle get _tableHeaderStyle => GoogleFonts.outfit(color: kGray600, fontSize: 10, fontWeight: FontWeight.bold);
 
   Widget _buildTableRow(ScanResult scan) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(flex: 1, child: Text('#${scan.id}', style: _tableRowStyle)),
-          Expanded(flex: 3, child: Text(scan.fileName, style: _tableRowStyle, overflow: TextOverflow.ellipsis, maxLines: 1)),
-          Expanded(flex: 1, child: Row(
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < 600) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          child: Row(
             children: [
-              Icon(_getIconForType(scan.mediaType), color: kGray400, size: 14),
-              const SizedBox(width: 4),
-              Text(scan.mediaType.toUpperCase(), style: _tableRowStyle),
+              Expanded(flex: 3, child: Text(scan.fileName, style: _tableRowStyle, overflow: TextOverflow.ellipsis, maxLines: 1)),
+              Expanded(flex: 2, child: Text('${scan.threatScore.toStringAsFixed(1)}', style: _tableRowStyle.copyWith(fontWeight: FontWeight.bold))),
+              Expanded(flex: 2, child: Text(scan.geminiVerdict?.toUpperCase() ?? 'NONE', style: _tableRowStyle.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1)),
             ],
-          )),
-          Expanded(flex: 1, child: Text('${scan.threatScore.toStringAsFixed(1)} / 100', style: _tableRowStyle.copyWith(fontWeight: FontWeight.bold))),
-          Expanded(flex: 1, child: Text(scan.geminiVerdict?.toUpperCase() ?? 'NONE', style: _tableRowStyle.copyWith(fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text(scan.timestamp ?? '--', style: _tableRowStyle)),
-        ],
-      ),
-    );
+          ),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(flex: 1, child: Text('#${scan.id}', style: _tableRowStyle, overflow: TextOverflow.ellipsis)),
+            Expanded(flex: 3, child: Text(scan.fileName, style: _tableRowStyle, overflow: TextOverflow.ellipsis, maxLines: 1)),
+            Expanded(flex: 1, child: Row(
+              children: [
+                Icon(_getIconForType(scan.mediaType), color: kGray400, size: 14),
+                const SizedBox(width: 4),
+                Flexible(child: Text(scan.mediaType.toUpperCase(), style: _tableRowStyle, overflow: TextOverflow.ellipsis)),
+              ],
+            )),
+            Expanded(flex: 1, child: Text('${scan.threatScore.toStringAsFixed(1)} / 100', style: _tableRowStyle.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+            Expanded(flex: 1, child: Text(scan.geminiVerdict?.toUpperCase() ?? 'NONE', style: _tableRowStyle.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+            Expanded(flex: 2, child: Text(scan.timestamp ?? '--', style: _tableRowStyle, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+      );
+    });
   }
 
   TextStyle get _tableRowStyle => GoogleFonts.outfit(color: kWhite, fontSize: 12);
@@ -1139,6 +1216,7 @@ class GlassCard extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           padding: const EdgeInsets.all(24),
+          clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
             color: kGlassBg,
             borderRadius: BorderRadius.circular(14),
@@ -1146,7 +1224,7 @@ class GlassCard extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: isExpanded ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -1159,13 +1237,17 @@ class GlassCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: GoogleFonts.outfit(
-                      color: kWhite,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.outfit(
+                        color: kWhite,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
@@ -1182,9 +1264,14 @@ class GlassCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               if (isExpanded)
-                Expanded(child: child)
+                Flexible(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: child,
+                  ),
+                )
               else
                 child,
             ],

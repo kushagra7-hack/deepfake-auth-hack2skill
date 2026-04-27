@@ -149,33 +149,37 @@ class _LandingScreenState extends State<LandingScreen> {
                     child: const Icon(Icons.shield_outlined, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 16),
-                  Text(
-                    'NEXUS_GATEWAY',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: isDesktop ? 18 : 14,
-                      letterSpacing: isDesktop ? 2.0 : 1.0,
+                  Flexible(
+                    child: Text(
+                      'NEXUS_GATEWAY',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: isDesktop ? 18 : 14,
+                        letterSpacing: isDesktop ? 2.0 : 1.0,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
                   if (isDesktop) ...[
+                    const Spacer(),
                     _navLink('Product', _productKey),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 12),
                     _navLink('Architecture', _architectureKey),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 12),
                     _navLink('How it works', _howItWorksKey),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 12),
                     _HoverNavLink(
                       title: 'API Docs',
                       onTapOverride: () {
                         Navigator.pushNamed(context, '/api_docs');
                       },
                     ),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 12),
                     _navLink('Contact', _contactKey),
-                    const SizedBox(width: 32),
-                  ],
+                    const SizedBox(width: 24),
+                  ] else
+                    const Spacer(),
                   AnimatedScaleHoverWrapper(
                     child: GestureDetector(
                       onTap: () => Navigator.pushReplacementNamed(context, '/login'),
@@ -300,24 +304,28 @@ class HeroSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Super title
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: _kBlue.withAlpha(15),
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(color: _kBlue.withAlpha(50)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 8, height: 8, decoration: const BoxDecoration(color: _kBlue, shape: BoxShape.circle)),
-              const SizedBox(width: 8),
-              Text(
-                'ENTERPRISE SECURITY',
-                style: GoogleFonts.spaceGrotesk(color: Colors.white, letterSpacing: 2.0, fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ],
+        // Super title badge — FittedBox prevents overflow on narrow screens
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: _kBlue.withAlpha(15),
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(color: _kBlue.withAlpha(50)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 8, height: 8, decoration: const BoxDecoration(color: _kBlue, shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Text(
+                  'ENTERPRISE SECURITY',
+                  style: GoogleFonts.spaceGrotesk(color: Colors.white, letterSpacing: 2.0, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 32),
@@ -359,17 +367,20 @@ class HeroSection extends StatelessWidget {
               fontSize: isDesktop ? 18 : 15,
               height: 1.6,
             ),
+            softWrap: true,
           ),
         ),
         const SizedBox(height: 48),
         // CTA
-        Row(
+        Wrap(
+          spacing: 16,
+          runSpacing: 12,
           children: [
             AnimatedScaleHoverWrapper(
               child: GestureDetector(
                 onTap: () => Navigator.pushReplacementNamed(context, '/login'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  padding: EdgeInsets.symmetric(horizontal: isDesktop ? 40 : 24, vertical: 20),
                   decoration: BoxDecoration(
                     color: Colors.black,
                     borderRadius: BorderRadius.circular(16),
@@ -386,7 +397,7 @@ class HeroSection extends StatelessWidget {
                         style: GoogleFonts.outfit(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
-                          fontSize: 16,
+                          fontSize: isDesktop ? 16 : 14,
                           letterSpacing: 2.0,
                         ),
                       ),
@@ -413,21 +424,24 @@ class HeroSection extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: isDesktop ? 80 : 24, vertical: isDesktop ? 100 : 60),
-      child: isDesktop 
-          ? Row(
-              children: [
-                Expanded(child: leftContent),
-                const SizedBox(width: 40),
-                rightContent,
-              ],
-            )
-          : Column(
-              children: [
-                leftContent,
-                const SizedBox(height: 60),
-                rightContent,
-              ],
-            ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth < 1000) {
+          return Column(
+            children: [
+              leftContent,
+              const SizedBox(height: 60),
+              rightContent,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: leftContent),
+            const SizedBox(width: 40),
+            rightContent,
+          ],
+        );
+      }),
     );
   }
 }
@@ -641,72 +655,89 @@ class _InteractiveExplainerSectionState extends State<InteractiveExplainerSectio
           ),
           const SizedBox(height: 60),
 
-          // Canvas area
-          MouseParallax(
-            mousePosition: widget.mousePosition,
-            depth: 0.00015,
-            child: SizedBox(
-              height: 420,
-              width: double.infinity,
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
+          // Canvas area — desktop: Positioned stack; mobile: simple Column
+          LayoutBuilder(builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 700;
+            if (isMobile) {
+              return Column(
                 children: [
-                  // Connective animated flow lines
-                  Positioned.fill(
-                    child: AnimatedBuilder(
-                      animation: _flowController,
-                      builder: (context, _) => CustomPaint(
-                        painter: _AnimatedFlowLinePainter(phase: _flowController.value),
-                      ),
-                    ),
+                  InteractiveExplainerNode(
+                    index: 0, lockedIndex: _lockedIndex,
+                    title: 'FastAPI Backend',
+                    description: 'Stateless asynchronous microservices handling high-throughput payload ingestion and routing securely.',
+                    icon: Icons.api_rounded, onTap: _onNodeTap,
                   ),
-
-                  // Node 0 — FastAPI Backend
-                  Positioned(
-                    left: 0,
-                    top: 120,
-                    child: InteractiveExplainerNode(
-                      index: 0,
-                      lockedIndex: _lockedIndex,
-                      title: 'FastAPI Backend',
-                      description: 'Stateless asynchronous microservices handling high-throughput payload ingestion and routing securely.',
-                      icon: Icons.api_rounded,
-                      onTap: _onNodeTap,
-                    ),
+                  const SizedBox(height: 16),
+                  InteractiveExplainerNode(
+                    index: 1, lockedIndex: _lockedIndex,
+                    title: 'Hugging Face Inference',
+                    description: 'Deploying custom fine-tuned visual transformers to locate pixel-level artifacting and noise models.',
+                    icon: Icons.biotech_outlined, onTap: _onNodeTap,
                   ),
-
-                  // Node 1 — Hugging Face
-                  Positioned(
-                    top: 0,
-                    right: 80,
-                    child: InteractiveExplainerNode(
-                      index: 1,
-                      lockedIndex: _lockedIndex,
-                      title: 'Hugging Face Inference',
-                      description: 'Deploying custom fine-tuned visual transformers to locate pixel-level artifacting and noise models.',
-                      icon: Icons.biotech_outlined,
-                      onTap: _onNodeTap,
-                    ),
-                  ),
-
-                  // Node 2 — Gemini Multimodal
-                  Positioned(
-                    bottom: 10,
-                    right: 30,
-                    child: InteractiveExplainerNode(
-                      index: 2,
-                      lockedIndex: _lockedIndex,
-                      title: 'Gemini Multimodal',
-                      description: 'Advanced LLM reasoning engine that validates contextual semantics and verifies environment constraints.',
-                      icon: Icons.auto_awesome,
-                      onTap: _onNodeTap,
-                    ),
+                  const SizedBox(height: 16),
+                  InteractiveExplainerNode(
+                    index: 2, lockedIndex: _lockedIndex,
+                    title: 'Gemini Multimodal',
+                    description: 'Advanced LLM reasoning engine that validates contextual semantics and verifies environment constraints.',
+                    icon: Icons.auto_awesome, onTap: _onNodeTap,
                   ),
                 ],
+              );
+            }
+            return MouseParallax(
+              mousePosition: widget.mousePosition,
+              depth: 0.00015,
+              child: SizedBox(
+                height: 420,
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Connective animated flow lines
+                    Positioned.fill(
+                      child: AnimatedBuilder(
+                        animation: _flowController,
+                        builder: (context, _) => CustomPaint(
+                          painter: _AnimatedFlowLinePainter(phase: _flowController.value),
+                        ),
+                      ),
+                    ),
+                    // Node 0 — FastAPI Backend
+                    Positioned(
+                      left: 0, top: 120,
+                      child: InteractiveExplainerNode(
+                        index: 0, lockedIndex: _lockedIndex,
+                        title: 'FastAPI Backend',
+                        description: 'Stateless asynchronous microservices handling high-throughput payload ingestion and routing securely.',
+                        icon: Icons.api_rounded, onTap: _onNodeTap,
+                      ),
+                    ),
+                    // Node 1 — Hugging Face
+                    Positioned(
+                      top: 0, right: 80,
+                      child: InteractiveExplainerNode(
+                        index: 1, lockedIndex: _lockedIndex,
+                        title: 'Hugging Face Inference',
+                        description: 'Deploying custom fine-tuned visual transformers to locate pixel-level artifacting and noise models.',
+                        icon: Icons.biotech_outlined, onTap: _onNodeTap,
+                      ),
+                    ),
+                    // Node 2 — Gemini Multimodal
+                    Positioned(
+                      bottom: 10, right: 30,
+                      child: InteractiveExplainerNode(
+                        index: 2, lockedIndex: _lockedIndex,
+                        title: 'Gemini Multimodal',
+                        description: 'Advanced LLM reasoning engine that validates contextual semantics and verifies environment constraints.',
+                        icon: Icons.auto_awesome, onTap: _onNodeTap,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
@@ -1049,22 +1080,25 @@ class FeatureGridsSection extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isDesktop ? 80 : 24),
-      child: isDesktop
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: MouseParallax(mousePosition: mousePosition, depth: 0.0001, child: grid)),
-                const SizedBox(width: 80),
-                Expanded(flex: 2, child: MouseParallax(mousePosition: mousePosition, depth: -0.0001, child: whySection)),
-              ],
-            )
-          : Column(
-              children: [
-                whySection,
-                const SizedBox(height: 60),
-                grid,
-              ],
-            ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth < 1000) {
+          return Column(
+            children: [
+              whySection,
+              const SizedBox(height: 60),
+              grid,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: MouseParallax(mousePosition: mousePosition, depth: 0.0001, child: grid)),
+            const SizedBox(width: 80),
+            Expanded(flex: 2, child: MouseParallax(mousePosition: mousePosition, depth: -0.0001, child: whySection)),
+          ],
+        );
+      }),
     );
   }
 
@@ -1233,21 +1267,24 @@ class CrossPlatformSection extends StatelessWidget {
                 end: Alignment.bottomRight,
               )
             ),
-            child: isDesktop 
-                ? Row(
-                    children: [
-                      Expanded(child: MouseParallax(mousePosition: mousePosition, depth: -0.00005, child: _buildTextContent(context))),
-                      const SizedBox(width: 60),
-                      Expanded(child: MouseParallax(mousePosition: mousePosition, depth: 0.0002, child: _buildMockups())),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      _buildTextContent(context),
-                      const SizedBox(height: 60),
-                      _buildMockups(),
-                    ],
-                  )
+            child: LayoutBuilder(builder: (context, constraints) {
+              if (constraints.maxWidth < 1000) {
+                return Column(
+                  children: [
+                    _buildTextContent(context),
+                    const SizedBox(height: 60),
+                    _buildMockups(),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: MouseParallax(mousePosition: mousePosition, depth: -0.00005, child: _buildTextContent(context))),
+                  const SizedBox(width: 60),
+                  Expanded(child: MouseParallax(mousePosition: mousePosition, depth: 0.0002, child: _buildMockups())),
+                ],
+              );
+            }),
           ),
         ),
       ),
@@ -1326,49 +1363,52 @@ class CrossPlatformSection extends StatelessWidget {
   }
 
   Widget _buildMockups() {
-    return SizedBox(
-      height: 400,
-      child: Stack(
-        children: [
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Transform.rotate(
-              angle: 0.1,
-              child: Container(
-                width: 300,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: _kBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _kBlue.withAlpha(50), width: 2),
-                  boxShadow: [BoxShadow(color: _kBlue.withAlpha(20), blurRadius: 40)],
+    return LayoutBuilder(builder: (context, constraints) {
+      final scale = (constraints.maxWidth / 500).clamp(0.5, 1.0);
+      return SizedBox(
+        height: 400 * scale,
+        child: Stack(
+          children: [
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Transform.rotate(
+                angle: 0.1,
+                child: Container(
+                  width: 300 * scale,
+                  height: 200 * scale,
+                  decoration: BoxDecoration(
+                    color: _kBg,
+                    borderRadius: BorderRadius.circular(16 * scale),
+                    border: Border.all(color: _kBlue.withAlpha(50), width: 2),
+                    boxShadow: [BoxShadow(color: _kBlue.withAlpha(20), blurRadius: 40 * scale)],
+                  ),
+                  child: Center(child: Icon(Icons.web, color: _kBlue, size: 48 * scale)),
                 ),
-                child: const Center(child: Icon(Icons.web, color: _kBlue, size: 48)),
               ),
             ),
-          ),
-          Positioned(
-            left: 20,
-            top: 20,
-            child: Transform.rotate(
-              angle: -0.15,
-              child: Container(
-                width: 160,
-                height: 320,
-                decoration: BoxDecoration(
-                  color: _kSurface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: _kPurple.withAlpha(50), width: 2),
-                  boxShadow: [BoxShadow(color: _kPurple.withAlpha(20), blurRadius: 40)],
+            Positioned(
+              left: 20 * scale,
+              top: 20 * scale,
+              child: Transform.rotate(
+                angle: -0.15,
+                child: Container(
+                  width: 160 * scale,
+                  height: 320 * scale,
+                  decoration: BoxDecoration(
+                    color: _kSurface,
+                    borderRadius: BorderRadius.circular(24 * scale),
+                    border: Border.all(color: _kPurple.withAlpha(50), width: 2),
+                    boxShadow: [BoxShadow(color: _kPurple.withAlpha(20), blurRadius: 40 * scale)],
+                  ),
+                  child: Center(child: Icon(Icons.smartphone, color: _kPurple, size: 48 * scale)),
                 ),
-                child: const Center(child: Icon(Icons.smartphone, color: _kPurple, size: 48)),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    });
   }
 }
 
@@ -1381,14 +1421,17 @@ class FooterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: _kBorder)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        runSpacing: 16,
+        spacing: 16,
         children: [
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.shield_outlined, color: Colors.white, size: 16),
               const SizedBox(width: 10),
@@ -1397,6 +1440,7 @@ class FooterSection extends StatelessWidget {
           ),
           if (MediaQuery.of(context).size.width > 600)
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text('Terms of Service', style: GoogleFonts.spaceGrotesk(color: _kZinc400, fontSize: 13)),
                 const SizedBox(width: 24),
@@ -1404,6 +1448,7 @@ class FooterSection extends StatelessWidget {
               ],
             ),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.public, color: _kZinc400, size: 20),
               const SizedBox(width: 16),
@@ -1460,27 +1505,42 @@ class ThreeColumnFeatureStrip extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 60),
-          isDesktop
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: features.asMap().entries.map((e) {
-                    final index = e.key;
-                    final f = e.value;
-                    final depth = index == 0 ? 0.0001 : (index == 1 ? 0.0002 : 0.0001);
-                    return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: MouseParallax(mousePosition: mousePosition, depth: depth, child: _buildFeatureCol(f)),
-                      ),
-                    );
-                  }).toList(),
-                )
-              : Column(
-                  children: features.map((f) => Padding(
-                    padding: const EdgeInsets.only(bottom: 32),
-                    child: _buildFeatureCol(f),
-                  )).toList(),
-                ),
+          LayoutBuilder(builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            if (width < 600) {
+              return Column(
+                children: features.map((f) => Padding(
+                  padding: const EdgeInsets.only(bottom: 32),
+                  child: _buildFeatureCol(f),
+                )).toList(),
+              );
+            } else if (width < 1000) {
+              return Wrap(
+                spacing: 24,
+                runSpacing: 32,
+                alignment: WrapAlignment.center,
+                children: features.map((f) => SizedBox(
+                  width: (width - 48) / 2,
+                  child: _buildFeatureCol(f),
+                )).toList(),
+              );
+            } else {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: features.asMap().entries.map((e) {
+                  final index = e.key;
+                  final f = e.value;
+                  final depth = index == 0 ? 0.0001 : (index == 1 ? 0.0002 : 0.0001);
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: MouseParallax(mousePosition: mousePosition, depth: depth, child: _buildFeatureCol(f)),
+                    ),
+                  );
+                }).toList(),
+              );
+            }
+          }),
           const SizedBox(height: 48),
           _PulsingCTAButton(
             label: 'SIGN UP NOW — FREE',
