@@ -1,16 +1,10 @@
 node_modules/
-.env
-.env.local
-.env.*
-!.env.example
 venv/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
-.next/
-.next/cache/
 dist/
 build/
 coverage/
@@ -23,20 +17,34 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-# IDE / Editor
+
 .vscode/
 .idea/
 *.swp
 *.swo
-# Sensitive outputs / debug artifacts
+
 *.txt
 !README.txt
 output*.json
 hf_*.txt
 auth_results*.txt
 cors_results*.txt
-# Secrets and Keys
+
 .env
+.env.local
+.env.*
+!.env.example
+
 *.json
-!flutter-client/android/app/google-services.json # Keep this if it's just the config, but usually safe to ignore too
-firebase-service-account.json
+!.env.example
+!flutter-client/android/app/google-services.json
+!backend/nexus-gateway-*-firebase-adminsdk-*.json
+
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+web/build/

@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
@@ -12,16 +12,3 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/app
-
-  web-client:
-    image: node:20-alpine
-    working_dir: /app
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./web-client:/app
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    command: sh -c "npm install && npm run dev"
-    depends_on:
-      - backend

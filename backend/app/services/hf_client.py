@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 # Model Constants
-IMAGE_MODEL = "prithivMLmods/Deepfake-Detection-Real-vs-Fake"
+IMAGE_MODEL = "dima806/deepfake_vs_real_image_detection"
 AUDIO_MODEL = "MelodyMachine/Deepfake-audio-detection-V2"
 
 # Working deepfake detection models (image-classification pipeline)
@@ -154,6 +154,7 @@ class HuggingFaceClient:
 
                     url = f"https://router.huggingface.co/hf-inference/models/{model_name}"
 
+                    assert self._http_client is not None, "HTTP client not initialized"
                     response = await self._http_client.post(
                         url,
                         content=file_bytes,

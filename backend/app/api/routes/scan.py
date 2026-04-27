@@ -184,6 +184,77 @@ async def create_scan(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or unsupported file format. File signature verification failed."
         )
+
+    # --- VIDEO INTERCEPTOR BLOCK ---
+    if "video" in str(file.content_type).lower() or file.filename.lower().endswith((".mp4", ".avi", ".mov")):
+        import tempfile
+        import cv2
+        import os
+        import logging
+        
+        logging.info(f"[VIDEO FLOW] Video payload detected: {file.filename}. Starting frame extraction...")
+        
+        temp_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+        temp_path = temp_vid.name
+        temp_vid.write(file_bytes)
+        temp_vid.close() # Critical for Windows
+            
+        try:
+            cap = cv2.VideoCapture(temp_path)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            if total_frames > 0:
+                # Calculate frame positions at 10%, 40%, 70%, and 90% of the video
+                timestamps = [int(total_frames * 0.1), int(total_frames * 0.4), int(total_frames * 0.7), int(total_frames * 0.9)]
+                frames = []
+                
+                for ts in timestamps:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, ts)
+                    success, frame = cap.read()
+                    if success:
+                        # Resize to keep the final grid manageable but high quality (1024x1024 per frame)
+                        frame = cv2.resize(frame, (1024, 1024))
+                        frames.append(frame)
+                
+                # If we successfully grabbed 4 frames, stitch them into a 2x2 grid
+                if len(frames) == 4:
+                    import numpy as np
+                    top_row = np.hstack((frames[0], frames[1]))
+                    bottom_row = np.hstack((frames[2], frames[3]))
+                    sprite_sheet = np.vstack((top_row, bottom_row))
+                    
+                    # Encode the 2x2 grid to JPEG with high quality
+                    is_success, buffer = cv2.imencode(".jpg", sprite_sheet, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                    if is_success:
+                        file_bytes = buffer.tobytes()
+                        
+                        # OVERRIDE LOCAL VARIABLE ONLY. Do NOT touch file.content_type!
+                        content_type = "image/jpeg"
+                        file_info.media_type = "image"
+                        file_info.mime_type = "image/jpeg"
+                        
+                        logging.info(f"[VIDEO EXTRACT] Created 2x2 Temporal Sprite Sheet. Size: {len(file_bytes)} bytes.")
+                    else:
+                        logging.error("[VIDEO EXTRACT] cv2.imencode failed to convert sprite sheet.")
+                else:
+                    logging.error(f"[VIDEO EXTRACT] Failed to extract 4 frames. Grabbed {len(frames)}.")
+            else:
+                logging.error("[VIDEO EXTRACT] cv2.VideoCapture returned 0 frames.")
+                
+            # CRITICAL: Release the lock immediately before doing anything else
+            cap.release()
+        except Exception as e:
+            logging.error(f"[VIDEO EXTRACT] CRITICAL EXCEPTION: {str(e)}")
+            if 'cap' in locals():
+                cap.release() # Fallback release
+        finally:
+            # Safely attempt to remove the file
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception as cleanup_error:
+                    logging.warning(f"[VIDEO EXTRACT] Could not remove temp file: {cleanup_error}")
+    # --- END VIDEO INTERCEPTOR ---
     
     file_hash = generate_file_hash(file_bytes)
     logger.debug(f"Generated hash for {filename}: {file_hash[:16]}...")
@@ -252,6 +323,7 @@ async def create_scan(
     gemini_tier = ""
 
     content_type = file.content_type
+
     if content_type and content_type.startswith("audio/"):
         logger.info(f"[SECURITY OVERRIDE] Audio file '{filename}' detected. Bypassing HuggingFace to prevent model crash.")
         try:
@@ -432,6 +504,7 @@ async def create_scan(
             result_details=result_details,
             created_at=updated_scan.get("created_at"),
             completed_at=updated_scan.get("completed_at"),
+            tier2_confidence=gemini_confidence,
         )
         
     except DatabaseError as e:
@@ -467,10 +540,10 @@ async def get_scan(
             )
         
         return ScanResponse(
-            id=scan.get("id"),
-            user_id=scan.get("user_id"),
-            file_name=scan.get("file_name"),
-            file_hash=scan.get("file_hash"),
+            id=str(scan.get("id") or ""),
+            user_id=str(scan.get("user_id") or ""),
+            file_name=str(scan.get("file_name") or ""),
+            file_hash=str(scan.get("file_hash") or ""),
             threat_score=Decimal(str(scan.get("threat_score", 0))),
             status=ScanStatus(scan.get("status")),
             media_type=scan.get("media_type"),
@@ -478,6 +551,7 @@ async def get_scan(
             result_details=scan.get("result_details"),
             created_at=scan.get("created_at"),
             completed_at=scan.get("completed_at"),
+            tier2_confidence=scan.get("result_details", {}).get("gemini_confidence") if isinstance(scan.get("result_details"), dict) else None,
         )
         
     except DatabaseError as e:
@@ -516,10 +590,10 @@ async def list_scans(
         
         scan_responses = [
             ScanResponse(
-                id=scan.get("id"),
-                user_id=scan.get("user_id"),
-                file_name=scan.get("file_name"),
-                file_hash=scan.get("file_hash"),
+                id=str(scan.get("id") or ""),
+                user_id=str(scan.get("user_id") or ""),
+                file_name=str(scan.get("file_name") or ""),
+                file_hash=str(scan.get("file_hash") or ""),
                 threat_score=Decimal(str(scan.get("threat_score", 0))),
                 status=ScanStatus(scan.get("status")),
                 media_type=scan.get("media_type"),
@@ -527,6 +601,7 @@ async def list_scans(
                 result_details=scan.get("result_details"),
                 created_at=scan.get("created_at"),
                 completed_at=scan.get("completed_at"),
+                tier2_confidence=scan.get("result_details", {}).get("gemini_confidence") if isinstance(scan.get("result_details"), dict) else None,
             )
             for scan in scans
         ]

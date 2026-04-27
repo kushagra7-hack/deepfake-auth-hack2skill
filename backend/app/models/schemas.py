@@ -66,6 +66,7 @@ class ScanResponse(BaseModel):
     result_details: Optional[Dict[str, Any]] = Field(None, description="Detailed analysis results")
     created_at: Optional[datetime] = Field(None, description="Scan creation timestamp")
     completed_at: Optional[datetime] = Field(None, description="Scan completion timestamp")
+    tier2_confidence: Optional[float] = Field(None, description="Tier 2 NVIDIA confidence score")
 
     model_config = {"from_attributes": True}
 

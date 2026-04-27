@@ -21,27 +21,16 @@ logger = logging.getLogger(__name__)
 GEMINI_MODEL = "meta/llama-3.2-90b-vision-instruct"
 
 FORENSICS_PROMPT = (
-    "You are a master digital forensics AI operating in a zero-trust security "
-    "gateway. Your first directive is extreme skepticism. DO NOT assume good "
-    "intent. Your goal is to find proof that this image is synthetic (a "
-    "deepfake). You are looking for flaws.\n\n"
-    "Assume plausible descriptions are hallucinations. Instead, perform this "
-    "STRICT multi-point visual audit:\n\n"
-    "1. micro-scan for 'generation noise': Look for specific frequency "
-    "mistakes—typo hallucinations (morphing, alien text), anatomical blending "
-    "(melting fingers, asymmetric pupils, impossible symmetry), and physics "
-    "errors (impossible shadow vectors, background elements blending).\n"
-    "2. micro-scan for 'too perfect' traits: Look for overly uniform skin "
-    "smoothing with no texture, perfectly symmetrical features, or artificial "
-    "lighting without natural variance. Generative AI is often 'too perfect.'\n\n"
-    "BASED STRICTLY ON VISUAL EVIDENCE, Output your final forensic reasoning "
-    "and verdict in this exact JSON format:\n"
+    "You are a Zero-Trust Deepfake Analyst. You are analyzing a 2x2 sprite sheet of 4 sequential video frames.\n\n"
+    "ASSUME THE MEDIA IS MANIPULATED. State-of-the-art deepfakes do not have obvious errors like extra fingers. You must look for micro-artifacts:\n"
+    "1. Uncanny smoothness, plastic skin textures, or lack of microscopic pores.\n"
+    "2. Temporal static: Backgrounds that are entirely too still or perfectly separated from the subject.\n"
+    "3. Micro-inconsistencies in eye reflections, teeth generation, or hair blending across the 4 frames.\n\n"
+    "Provide your reasoning in exactly 2 short sentences. Conclude with a definitive DEEPFAKE or AUTHENTIC verdict.\n\n"
+    "Output your final forensic reasoning and verdict in this exact JSON format:\n"
     "{\n"
     '    "gemini_verdict": "DEEPFAKE" or "AUTHENTIC",\n'
-    '    "gemini_reasoning": "[Classify the media type (portrait, etc)]. '
-    '[Perform the 2-point visual audit in 2 analytical, cold sentences. Detail '
-    'exactly which forensic artifact—not descriptive plausibility—led to the '
-    'conclusion.]"\n'
+    '    "gemini_reasoning": "[Provide your 2 short sentences here.]"\n'
     "}"
 )
 
@@ -112,6 +101,8 @@ async def run_gemini_analysis(
                 ]
             }],
             response_format={"type": "json_object"},
+            temperature=0.1,
+            top_p=0.9,
             logprobs=True,
         )
         # Extract model name from live response (more accurate than constant)
