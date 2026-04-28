@@ -336,8 +336,10 @@ async def create_scan(
     real_gemini_confidence = None
 
     content_type = file.content_type
+    
+    is_audio = ("audio" in str(content_type).lower()) or filename.lower().endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"))
 
-    if content_type and content_type.startswith("audio/"):
+    if is_audio:
         logger.info(f"[AUDIO] Audio file '{filename}' detected. Running full AI pipeline...")
 
         # ── NVIDIA NIM audio analysis (via spectrogram)
