@@ -414,26 +414,31 @@ class _DashboardScreenState extends State<DashboardScreen>
                         'NEXUS_GATEWAY',
                         style: GoogleFonts.outfit(
                           color: kWhite,
-                          fontSize: 16,
+                          fontSize: constraints.maxWidth < 400 ? 14 : 16,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
                       ),
                       Text(
                         'DEEPFAKE DETECTION ENGINE',
                         style: GoogleFonts.outfit(
                           color: kGray400,
-                          fontSize: 9,
+                          fontSize: constraints.maxWidth < 400 ? 8 : 9,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 1,
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
                       ),
                     ],
                   ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const BrowserNavButtons(),
                     const SizedBox(width: 8),
@@ -455,30 +460,35 @@ class _DashboardScreenState extends State<DashboardScreen>
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(
-            width: 200,
+          Flexible(
+            flex: 2,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'NEXUS_GATEWAY',
                   style: GoogleFonts.outfit(
                     color: kWhite,
-                    fontSize: 20,
+                    fontSize: constraints.maxWidth < 900 ? 18 : 20,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
+                    letterSpacing: constraints.maxWidth < 900 ? 1.5 : 2,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
                 ),
                 Text(
                   'DEEPFAKE DETECTION ENGINE',
                   style: GoogleFonts.outfit(
                     color: kGray400,
-                    fontSize: 10,
+                    fontSize: constraints.maxWidth < 900 ? 9 : 10,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 1,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
                 ),
               ],
             ),
@@ -488,8 +498,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           _buildNavCapsule(),
           
           // Actions
-          SizedBox(
-            width: 300,
+          Flexible(
+            flex: 3,
             child: Wrap(
               spacing: 16.0,
               runSpacing: 16.0,
