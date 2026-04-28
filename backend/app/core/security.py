@@ -38,12 +38,15 @@ class FileInfo:
 
 
 FILE_SIGNATURES: dict[tuple[bytes, ...], FileInfo] = {
-    (b"\x00\x00\x00\x18\x66\x74\x79\x70", b"\x00\x00\x00\x1c\x66\x74\x79\x70"): FileInfo(
+    (b"\x00\x00\x00\x18\x66\x74\x79\x70", b"\x00\x00\x00\x1c\x66\x74\x79\x70",
+     b"\x00\x00\x00\x20\x66\x74\x79\x70", b"\x00\x00\x00\x24\x66\x74\x79\x70",
+     b"\x00\x00\x00\x28\x66\x74\x79\x70", b"\x00\x00\x00\x14\x66\x74\x79\x70",
+     b"\x00\x00\x00\x08\x66\x74\x79\x70",): FileInfo(
         signature=FileSignature.MP4,
         media_type="video",
         mime_type="video/mp4",
         is_valid=True,
-        description="MP4 video file (ISO Base Media)"
+        description="MP4/M4A/MOV container (ISO Base Media ftyp box)"
     ),
     (b"\x00\x00\x00\x20\x66\x74\x79\x70",): FileInfo(
         signature=FileSignature.MP4_ALT,
@@ -165,6 +168,31 @@ def verify_file_signature(file_bytes: bytes) -> FileInfo:
     
     header = file_bytes[:MAX_SIGNATURE_READ]
     
+    # ── Generic ftyp-box detector (handles ALL M4A/M4V/MP4 variants) ──
+    # The ftyp atom size varies: 0x14, 0x18, 0x1c, 0x20, 0x24, 0x28 …
+    # We match any 4-byte big-endian box size followed by the literal b'ftyp'
+    if len(file_bytes) >= 12 and header[4:8] == b"ftyp":
+        # Peek at the brand to decide audio vs video
+        brand = header[8:12]
+        # M4A brands: M4A (space), mp42, isom, avc1, dash, etc.
+        # Audio-only brands include M4A and f4a among others
+        audio_brands = {b"M4A ", b"M4B ", b"M4P ", b"f4a ", b"f4b "}
+        if brand in audio_brands:
+            return FileInfo(
+                signature=FileSignature.MP3,   # reuse MP3 slot — media_type is what matters
+                media_type="audio",
+                mime_type="audio/mp4",
+                is_valid=True,
+                description=f"M4A audio file (brand={brand.decode(errors='replace')})"
+            )
+        return FileInfo(
+            signature=FileSignature.MP4,
+            media_type="video",
+            mime_type="video/mp4",
+            is_valid=True,
+            description=f"MP4/M4V container (brand={brand.decode(errors='replace')})"
+        )
+
     for magic_bytes, file_info in FILE_SIGNATURES.items():
         for magic in magic_bytes:
             if header.startswith(magic):

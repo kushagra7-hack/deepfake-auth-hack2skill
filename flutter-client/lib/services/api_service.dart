@@ -167,10 +167,10 @@ class ApiService {
     }
 
     try {
-      // 90s timeout: Render free tier can take up to 50s to cold-start,
-      // plus up to 30s for AI inference.
+      // 180s timeout: Render free tier can take up to 60s to cold-start,
+      // plus up to 45s for parallel AI inference (NVIDIA + Gemini).
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 90),
+        const Duration(seconds: 180),
       );
       final response = await http.Response.fromStream(streamedResponse);
 

@@ -190,7 +190,8 @@ async def create_scan(
         )
 
     # --- VIDEO INTERCEPTOR BLOCK ---
-    if "video" in str(file.content_type).lower() or file.filename.lower().endswith((".mp4", ".avi", ".mov")):
+    _is_audio_ext = filename.lower().endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".m4b", ".m4p"))
+    if not _is_audio_ext and ("video" in str(file.content_type).lower() or file.filename.lower().endswith((".mp4", ".avi", ".mov"))):
         import tempfile
         import cv2
         import os
@@ -337,7 +338,11 @@ async def create_scan(
 
     content_type = file.content_type
     
-    is_audio = ("audio" in str(content_type).lower()) or filename.lower().endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"))
+    is_audio = (
+        "audio" in str(content_type).lower()
+        or "audio/mp4" in str(content_type).lower()  # M4A files
+        or filename.lower().endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".m4b", ".m4p"))
+    )
 
     if is_audio:
         logger.info(f"[AUDIO] Audio file '{filename}' detected. Running full AI pipeline...")
