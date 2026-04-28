@@ -149,7 +149,7 @@ async def readiness_check() -> dict[str, Any]:
         checks["checks"]["database"] = f"error: {str(e)}"
         checks["status"] = "not_ready"
     
-    checks["checks"]["huggingface_api"] = "configured" if settings.HUGGINGFACE_API_KEY else "not_configured"
+    checks["checks"]["huggingface_api"] = "configured" if settings.HUGGINGFACE_API_TOKEN else "not_configured"
     
     all_healthy = all(
         v in ["connected", "configured", "ok"] 

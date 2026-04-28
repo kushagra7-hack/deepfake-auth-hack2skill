@@ -40,9 +40,19 @@ def initialize_firebase() -> None:
             f"[Firebase] Admin SDK initialized via JSON string — project: {settings.FIREBASE_PROJECT_ID}"
         )
     else:
-        logger.warning("WARNING: Firebase credentials missing from env var. Falling back to local file.")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.FIREBASE_CREDENTIALS_PATH
-        cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+        logger.warning("WARNING: Firebase credentials missing from env var. Checking for Secret File...")
+        
+        render_secret_path = "/etc/secrets/firebase-adminsdk.json"
+        
+        if os.path.exists(render_secret_path):
+            logger.info(f"Found Render Secret File at {render_secret_path}")
+            cred_path = render_secret_path
+        else:
+            logger.info(f"Falling back to local file: {settings.FIREBASE_CREDENTIALS_PATH}")
+            cred_path = settings.FIREBASE_CREDENTIALS_PATH
+            
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
+        cred = credentials.Certificate(cred_path)
         _firebase_app = firebase_admin.initialize_app(cred, {
             "projectId": settings.FIREBASE_PROJECT_ID,
         })

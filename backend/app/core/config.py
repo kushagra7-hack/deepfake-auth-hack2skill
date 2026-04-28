@@ -1,4 +1,4 @@
-﻿"""
+"""
 Application configuration for Deepfake Authentication Gateway.
 Uses Pydantic Settings for type-safe environment variable loading.
 Firebase replaces Supabase for auth and database.
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     )
 
     # ── AI APIs ──────────────────────────────────────────────────────────────
-    HUGGINGFACE_API_KEY: str = Field(..., description="HuggingFace Inference API key")
+    HUGGINGFACE_API_TOKEN: str = Field(..., description="HuggingFace Inference API Token")
     NVIDIA_API_KEY: str = Field(default="", description="NVIDIA NIM API key for Tier-2 analysis")
 
     # ── JWT (kept for legacy token parsing if needed) ────────────────────────

@@ -350,7 +350,7 @@ async def get_hf_client() -> HuggingFaceClient:
     """Get or create Hugging Face client instance."""
     global _hf_client
     if _hf_client is None:
-        _hf_client = HuggingFaceClient(settings.HUGGINGFACE_API_KEY)
+        _hf_client = HuggingFaceClient(settings.HUGGINGFACE_API_TOKEN)
     await _hf_client._ensure_client()
     return _hf_client
 
