@@ -1,0 +1,28 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+/build/
+*.apk
+
+# Backend
+__pycache__/
+*.pyc
+.env
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials
+*firebase-adminsdk*.json
+google-services.json
