@@ -710,7 +710,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final content = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-          const Spacer(),
+          const SizedBox(height: 24),
           Stack(
             alignment: Alignment.center,
             children: [
