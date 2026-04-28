@@ -1327,7 +1327,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _buildPrimaryButton(
           label: 'VIEW FULL ANALYSIS',
           icon: Icons.open_in_full,
-          onPressed: _currentResult != null ? () => _showFullAnalysisDialog() : null,
+          onPressed: () { if (_currentResult != null) _showFullAnalysisDialog(); },
           isCompact: true,
         ),
       ],
