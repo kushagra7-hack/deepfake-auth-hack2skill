@@ -440,7 +440,40 @@ async def create_scan(
         hf_model = "none"
         hf_ms = 0.0
 
-    threat_score = Decimal(str(round(hf_score_normalized * 100, 2)))
+    # ── Ensemble Score: blend HF (60%) + NVIDIA verdict (40%) ───────────────
+    # This ensures fully AI-generated images that HF underscores but NVIDIA
+    # catches (via the visual prompt) still receive a high final threat score.
+    hf_weight = 0.60
+    nvidia_weight = 0.40
+
+    hf_component = float(hf_score_normalized)
+
+    # Convert NVIDIA verdict to a numeric signal
+    if gemini_verdict == "DEEPFAKE":
+        nvidia_signal = gemini_confidence / 100.0 if gemini_confidence else 0.85
+    elif gemini_verdict in ("ELEVATED_RISK", "ANALYSIS_FAILED"):
+        nvidia_signal = 0.65  # Suspicious by default on analysis failure
+    else:  # AUTHENTIC
+        nvidia_signal = 1.0 - (gemini_confidence / 100.0) if gemini_confidence else 0.15
+
+    # If NVIDIA says DEEPFAKE but HF said low — trust NVIDIA more (AI-art case)
+    if gemini_verdict == "DEEPFAKE" and hf_component < 0.40:
+        hf_weight, nvidia_weight = 0.30, 0.70
+        logger.info(
+            f"[ENSEMBLE] NVIDIA override: HF={hf_component:.2f} low but NVIDIA=DEEPFAKE. "
+            f"Boosting NVIDIA weight to 70%."
+        )
+
+    ensemble_score = (hf_component * hf_weight) + (nvidia_signal * nvidia_weight)
+
+    # Logic Shield: clamp to [0.0, 1.0]
+    threat_score_float = max(0.0, min(1.0, ensemble_score))
+    threat_score = Decimal(str(round(threat_score_float, 4)))
+
+    logger.info(
+        f"[ENSEMBLE] HF={hf_component:.3f}*{hf_weight} + "
+        f"NVIDIA={nvidia_signal:.3f}*{nvidia_weight} = {threat_score_float:.4f}"
+    )
 
     result_details = {
         # ── Tier metadata ─────────────────────────────────────────────────

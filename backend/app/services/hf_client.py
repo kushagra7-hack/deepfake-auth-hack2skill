@@ -22,11 +22,15 @@ logger = logging.getLogger(__name__)
 IMAGE_MODEL = "dima806/deepfake_vs_real_image_detection"
 AUDIO_MODEL = "MelodyMachine/Deepfake-audio-detection-V2"
 
-# Working deepfake detection models (image-classification pipeline)
+# Ordered fallback chain — prioritises AI-image detectors first, then face-deepfake models.
+# umm-maybe/AI-image-detector: binary real/AI classifier trained on broad synthetic content
+# Organika/sdxl-detector: SDXL/diffusion model detector
+# dima806: face-deepfake specialist (covers GAN face swaps)
 DEEPFAKE_MODELS = [
-    IMAGE_MODEL,
-    "Organika/sdxl-detector",
-    "Falconsai/nsfw_image_detection",   # Fallback: reliable warm model on HF
+    "umm-maybe/AI-image-detector",        # Best for fully AI-generated images
+    "Organika/sdxl-detector",             # Catches Stable-Diffusion / SDXL output
+    IMAGE_MODEL,                           # Face-deepfake specialist
+    "Falconsai/nsfw_image_detection",     # Warm fallback
 ]
 
 
@@ -116,7 +120,8 @@ class HuggingFaceClient:
         
         mime_type = file_info.mime_type.lower()
         if mime_type.startswith("image/"):
-            models_to_try = [IMAGE_MODEL] + [m for m in DEEPFAKE_MODELS if m != IMAGE_MODEL]
+            # Try AI-image detectors first, then face-deepfake model
+            models_to_try = list(DEEPFAKE_MODELS)  # ordered chain
             return await self._run_inference(file_bytes, start_time, models_to_try)
         elif mime_type.startswith("audio/"):
             return await self._run_inference(file_bytes, start_time, [AUDIO_MODEL])
@@ -257,8 +262,20 @@ class HuggingFaceClient:
                 "fake": "fake", "real": "real"
             },
             "Organika/sdxl-detector": {
-                "artificial": "fake", "human": "real", 
-                "sdxl": "fake", "not sdxl": "real"
+                "artificial": "fake", "human": "real",
+                "sdxl": "fake", "not sdxl": "real",
+                "ai-generated": "fake", "real": "real",
+            },
+            "umm-maybe/AI-image-detector": {
+                # Model outputs: 'artificial' / 'human' with confidence scores
+                "artificial": "fake",
+                "ai": "fake",
+                "human": "real",
+                "real": "real",
+            },
+            "Nahrawy/AIorNot": {
+                "ai": "fake",
+                "real": "real",
             },
             "Falconsai/nsfw_image_detection": {
                 "nsfw": "fake", "normal": "real"

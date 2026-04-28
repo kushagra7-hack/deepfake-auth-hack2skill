@@ -20,17 +20,31 @@ logger = logging.getLogger(__name__)
 
 GEMINI_MODEL = "meta/llama-3.2-90b-vision-instruct"
 
-FORENSICS_PROMPT = (
-    "You are a Zero-Trust Deepfake Analyst. You are analyzing a 2x2 sprite sheet of 4 sequential video frames.\n\n"
-    "ASSUME THE MEDIA IS MANIPULATED. State-of-the-art deepfakes do not have obvious errors like extra fingers. You must look for micro-artifacts:\n"
-    "1. Uncanny smoothness, plastic skin textures, or lack of microscopic pores.\n"
-    "2. Temporal static: Backgrounds that are entirely too still or perfectly separated from the subject.\n"
-    "3. Micro-inconsistencies in eye reflections, teeth generation, or hair blending across the 4 frames.\n\n"
-    "Provide your reasoning in exactly 2 short sentences. Conclude with a definitive DEEPFAKE or AUTHENTIC verdict.\n\n"
-    "Output your final forensic reasoning and verdict in this exact JSON format:\n"
+FORENSICS_PROMPT_TEMPLATE = (
+    "You are the Nexus Lead Forensic Engine. Analyze the provided image for signs of "
+    "AI generation or deepfake manipulation.\n\n"
+    "Tier-1 HuggingFace pre-screen score: {hf_score_pct:.1f}% (0=authentic, 100=AI/deepfake).\n\n"
+    "DETECTION TARGETS — look for ALL of the following synthetic artifacts:\n"
+    "1. AI-GENERATION ARTIFACTS: Uncanny smoothness, plastic skin textures, lack of microscopic pores "
+    "or natural noise grain. Overly perfect lighting with no harsh shadows. Backgrounds that dissolve "
+    "into blur or have impossible geometry.\n"
+    "2. DIFFUSION MODEL FINGERPRINTS: Overly symmetric faces, merged or fused body parts, fingers with "
+    "wrong counts, jewelry or text that is warped or illegible, fabric patterns that don't tile correctly.\n"
+    "3. GAN ARTIFACTS: Spectral aliasing, checkerboard patterns in smooth gradients, eye reflections "
+    "that don't match the light source, hair strands that merge unnaturally.\n"
+    "4. FACE-SWAP DEEPFAKES: Boundary artifacts at the face edge, inconsistent skin tone between face "
+    "and neck, micro-jitter or static backgrounds across frames, blurred ear regions.\n"
+    "5. METADATA CONTEXT: If the image appears to be a screenshot of software (UI elements, code, "
+    "hazard stripes, debug overlays), classify as 'Synthetic Software Rendering' and flag HIGH-THREAT.\n\n"
+    "SCORING RULE: Your verdict MUST be calibrated to the Tier-1 score.\n"
+    " - If HF score > 75%: you MUST find and describe synthetic artifacts. Verdict = DEEPFAKE.\n"
+    " - If HF score 40-75%: describe any suspicious elements found. Verdict = DEEPFAKE or AUTHENTIC.\n"
+    " - If HF score < 40%: explain why the image appears authentic (natural noise, consistent lighting). "
+    "Verdict = AUTHENTIC unless you see obvious AI artifacts.\n\n"
+    "Respond with ONLY this JSON object (no extra text):\n"
     "{\n"
     '    "gemini_verdict": "DEEPFAKE" or "AUTHENTIC",\n'
-    '    "gemini_reasoning": "[Provide your 2 short sentences here.]"\n'
+    '    "gemini_reasoning": "[2-3 sentences describing the key forensic evidence found.]"\n'
     "}"
 )
 
@@ -67,7 +81,8 @@ async def run_gemini_analysis(
     hf_score_normalized: float,
 ) -> dict:
     hf_score_pct = hf_score_normalized * 100
-    prompt = FORENSICS_PROMPT
+    # Inject the HF score into the prompt so NVIDIA can calibrate its verdict
+    prompt = FORENSICS_PROMPT_TEMPLATE.format(hf_score_pct=hf_score_pct)
 
     logger.info(
         f"[TIER-2] Dispatching to NVIDIA ({GEMINI_MODEL}) — HF score: {hf_score_pct:.2f}%"
