@@ -268,7 +268,7 @@ def _get_nvidia_client() -> OpenAI:
     api_key = getattr(settings, "NVIDIA_API_KEY", None)
     if not api_key:
         raise RuntimeError("NVIDIA_API_KEY not configured.")
-    return OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=api_key)
+    return OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=api_key, timeout=15.0)
 
 
 # ---------------------------------------------------------------------------

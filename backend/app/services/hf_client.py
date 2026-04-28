@@ -57,7 +57,7 @@ AUDIO_MODEL_SPEC = ModelSpec(
 )
 
 ENSEMBLE_TOP_N    = 4
-HF_TIMEOUT        = 120
+HF_TIMEOUT        = 15
 HF_RETRIES        = 3
 HF_RETRY_DELAY    = 2
 COLD_START_CAP    = 60

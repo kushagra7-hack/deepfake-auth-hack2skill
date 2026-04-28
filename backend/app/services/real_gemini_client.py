@@ -102,7 +102,7 @@ async def analyze_with_gemini(
     url = f"{GEMINI_API_BASE}/{GEMINI_MODEL}:generateContent?key={api_key}"
 
     def _blocking_call() -> str:
-        with httpx.Client(timeout=60.0) as client:
+        with httpx.Client(timeout=15.0) as client:
             resp = client.post(url, json=payload)
             resp.raise_for_status()
             return resp.text
