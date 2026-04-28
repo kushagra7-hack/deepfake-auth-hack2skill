@@ -24,7 +24,7 @@ FORENSICS_PROMPT_TEMPLATE = (
     "You are the Nexus Lead Forensic Engine. Analyze the provided image for signs of "
     "AI generation or deepfake manipulation.\n\n"
     "Tier-1 HuggingFace pre-screen score: {hf_score_pct:.1f}% (0=authentic, 100=AI/deepfake).\n\n"
-    "DETECTION TARGETS — look for ALL of the following synthetic artifacts:\n"
+    "DETECTION TARGETS \u2014 look for ALL of the following synthetic artifacts:\n"
     "1. AI-GENERATION ARTIFACTS: Uncanny smoothness, plastic skin textures, lack of microscopic pores "
     "or natural noise grain. Overly perfect lighting with no harsh shadows. Backgrounds that dissolve "
     "into blur or have impossible geometry.\n"
@@ -42,11 +42,12 @@ FORENSICS_PROMPT_TEMPLATE = (
     " - If HF score < 40%: explain why the image appears authentic (natural noise, consistent lighting). "
     "Verdict = AUTHENTIC unless you see obvious AI artifacts.\n\n"
     "Respond with ONLY this JSON object (no extra text):\n"
-    "{\n"
+    "{{\n"                                          # << doubled braces = literal {
     '    "gemini_verdict": "DEEPFAKE" or "AUTHENTIC",\n'
     '    "gemini_reasoning": "[2-3 sentences describing the key forensic evidence found.]"\n'
-    "}"
+    "}}"                                            # << doubled braces = literal }
 )
+
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
