@@ -183,7 +183,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     const Spacer(),
                   AnimatedScaleHoverWrapper(
                     child: GestureDetector(
-                      onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+                      onTap: () => Navigator.pushNamed(context, '/login'),
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20 : 14, vertical: 10),
                         decoration: BoxDecoration(
@@ -382,7 +382,7 @@ class HeroSection extends StatelessWidget {
             TrustButton(
               label: 'ENTER DASHBOARD',
               isForwardAction: true,
-              onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+              onPressed: () => Navigator.pushNamed(context, '/login'),
             ),
           ],
         ),
@@ -1286,7 +1286,7 @@ class CrossPlatformSection extends StatelessWidget {
             _storeButton(
               icon: Icons.language, 
               label: 'Launch Web Client', 
-              onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+              onTap: () => Navigator.pushNamed(context, '/login'),
             ),
             _storeButton(
               icon: Icons.android, 
@@ -1518,7 +1518,7 @@ class ThreeColumnFeatureStrip extends StatelessWidget {
           const SizedBox(height: 48),
           _PulsingCTAButton(
             label: 'SIGN UP NOW — FREE',
-            onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+            onTap: () => Navigator.pushNamed(context, '/login'),
           ),
         ],
       ),

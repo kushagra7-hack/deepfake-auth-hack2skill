@@ -8,6 +8,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/landing_screen.dart';
 import 'screens/api_docs_screen.dart';
+import 'services/navigation_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,41 +58,15 @@ class NexusGatewayApp extends StatelessWidget {
       builder: (context, child) {
         return GlobalCursorWrapper(child: child!);
       },
-      // Use AuthWrapper as the home
-      home: const AuthWrapper(),
+      navigatorKey: NavigationService.instance.navigatorKey,
+      navigatorObservers: [BrowserNavigationObserver()],
+      // Use LandingScreen as the home
+      home: const LandingScreen(),
       routes: {
+        '/landing': (context) => const LandingScreen(),
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
         '/api_docs': (context) => const ApiDocsScreen(),
-      },
-    );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // If the connection is busy, show a loading indicator
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-          );
-        }
-        
-        // If a user is actively authenticated, straight to dashboard.
-        if (snapshot.hasData && snapshot.data != null) {
-          return const DashboardScreen();
-        }
-
-        // If not, send them back to zero-trust gateway.
-        return const LandingScreen();
       },
     );
   }

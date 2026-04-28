@@ -11,7 +11,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../widgets/trust_button.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
-
+import '../widgets/browser_nav_buttons.dart';
 // ── DESIGN SYSTEM ─────────────────────────────────────────────────────────────
 const kPureBlack = Color(0xFF000000);
 const kGlassBg = Color(0x08FFFFFF); // rgba(255,255,255,0.03)
@@ -435,6 +435,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 Row(
                   children: [
+                    const BrowserNavButtons(),
+                    const SizedBox(width: 8),
                     _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
                     const SizedBox(width: 8),
                     _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
@@ -487,12 +489,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           
           // Actions
           SizedBox(
-            width: 250,
+            width: 300,
             child: Wrap(
               spacing: 16.0,
               runSpacing: 16.0,
               alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                const BrowserNavButtons(),
                 _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
                 _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
               ],

@@ -44,6 +44,16 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isGoogleHovered = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (FirebaseAuth.instance.currentUser != null) {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
