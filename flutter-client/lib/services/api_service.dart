@@ -142,67 +142,102 @@ class ApiService {
     };
   }
 
-  // ── POST /api/scan ─────────────────────────────────────────────────────────
-  Future<ScanResult> scanMedia(PlatformFile file) async {
-    final uri = Uri.parse('$_baseUrl/api/scan');
-    final headers = await _authHeaders();
+  // ── Wakeup: ping /health to warm up Render before credentialed scan ────────
+  Future<void> _wakeupBackend() async {
+    try {
+      final sw = Stopwatch()..start();
+      final resp = await http.get(
+        Uri.parse('$_baseUrl/health'),
+      ).timeout(const Duration(seconds: 65));
+      sw.stop();
+      debugPrint('[API] /health → ${resp.statusCode} in ${sw.elapsedMilliseconds}ms');
+      // If it took >3s the service was sleeping — give it extra time to fully init
+      if (sw.elapsedMilliseconds > 3000) {
+        debugPrint('[API] Render was cold-starting, waiting 10s for full init...');
+        await Future.delayed(const Duration(seconds: 10));
+      }
+    } catch (_) {
+      // Wakeup failed — proceed anyway; scan will retry on failure
+      debugPrint('[API] Wakeup ping failed — proceeding with scan anyway.');
+    }
+  }
 
-    final request = http.MultipartRequest('POST', uri);
+  // ── Build the multipart request (reusable so we can retry) ─────────────────
+  Future<http.MultipartRequest> _buildScanRequest(
+      PlatformFile file, Map<String, String> headers) async {
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('$_baseUrl/api/scan'));
     request.headers.addAll(headers);
-
     if (file.bytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
-        'file',
-        file.bytes!,
-        filename: file.name,
-      ));
+        'file', file.bytes!, filename: file.name));
     } else if (file.path != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-        'file',
-        file.path!,
-        filename: file.name,
-      ));
+      request.files.add(
+          await http.MultipartFile.fromPath('file', file.path!, filename: file.name));
     } else {
       throw Exception('Could not read file: no bytes or path available.');
     }
+    return request;
+  }
 
-    try {
-      // 180s timeout: Render free tier can take up to 60s to cold-start,
-      // plus up to 45s for parallel AI inference (NVIDIA + Gemini).
-      final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 180),
-      );
-      final response = await http.Response.fromStream(streamedResponse);
+  // ── POST /api/scan ─────────────────────────────────────────────────────────
+  Future<ScanResult> scanMedia(PlatformFile file) async {
+    // Step 1: Wake up Render before making the credentialed POST.
+    // Render free-tier sleeps after 15 min idle. The wakeup GET /health
+    // has no auth header so it's a simple CORS request — no preflight needed.
+    // This prevents the "ClientFailed to fetch" CORS error during cold-starts.
+    await _wakeupBackend();
 
-      debugPrint('[API] POST /api/scan → ${response.statusCode}');
-      debugPrint('[API] Body preview: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
+    final headers = await _authHeaders();
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return ScanResult.fromJson(json);
-      } else if (response.statusCode == 401 || response.statusCode == 403) {
-        // Auth token expired or missing — NOT a connection error
-        throw Exception('Session expired. Please sign out and sign in again.');
-      } else {
-        // Try to get the backend detail message
-        String detail = 'Scan failed (HTTP ${response.statusCode})';
-        try {
-          final errJson = jsonDecode(response.body) as Map<String, dynamic>;
-          detail = errJson['detail']?.toString() ??
-              errJson['message']?.toString() ??
-              detail;
-        } catch (_) {
-          // body wasn't JSON — use raw
-          detail = 'Backend error ${response.statusCode}: ${response.body.substring(0, response.body.length.clamp(0, 120))}';
+    // Step 2: Attempt scan, retry once if connection fails (Render still waking)
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final request = await _buildScanRequest(file, headers);
+
+        debugPrint('[API] POST /api/scan — attempt $attempt');
+        // 120s timeout: service is now warm, inference takes ~30s max
+        final streamedResponse = await request.send().timeout(
+          const Duration(seconds: 120),
+        );
+        final response = await http.Response.fromStream(streamedResponse);
+
+        debugPrint('[API] POST /api/scan → ${response.statusCode}');
+        debugPrint('[API] Body preview: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          return ScanResult.fromJson(json);
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          throw Exception('Session expired. Please sign out and sign in again.');
+        } else {
+          String detail = 'Scan failed (HTTP ${response.statusCode})';
+          try {
+            final errJson = jsonDecode(response.body) as Map<String, dynamic>;
+            detail = errJson['detail']?.toString() ??
+                errJson['message']?.toString() ??
+                detail;
+          } catch (_) {
+            detail = 'Backend error ${response.statusCode}: '
+                '${response.body.substring(0, response.body.length.clamp(0, 120))}';
+          }
+          throw Exception(detail);
         }
-        throw Exception(detail);
+      } on TimeoutException {
+        if (attempt == 2) {
+          throw Exception(
+            'Analysis timed out. The gateway is under heavy load — please try again.');
+        }
+        debugPrint('[API] Timeout on attempt $attempt, retrying in 15s...');
+        await Future.delayed(const Duration(seconds: 15));
+      } catch (e) {
+        // ClientException (network/CORS during cold-start) — retry once
+        if (attempt == 2 || e.toString().contains('Session expired')) rethrow;
+        debugPrint('[API] Attempt $attempt failed: $e — waiting 20s then retrying...');
+        await Future.delayed(const Duration(seconds: 20));
       }
-    } on TimeoutException {
-      throw TimeoutException(
-        'Waking up secure gateway, please wait...\n'
-        'The server is starting up. Try again in a moment.',
-      );
     }
+    throw Exception('Scan failed after retries.');
   }
 
   // ── GET /api/scan ──────────────────────────────────────────────────────────

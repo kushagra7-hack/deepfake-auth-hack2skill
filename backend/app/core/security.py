@@ -48,13 +48,6 @@ FILE_SIGNATURES: dict[tuple[bytes, ...], FileInfo] = {
         is_valid=True,
         description="MP4/M4A/MOV container (ISO Base Media ftyp box)"
     ),
-    (b"\x00\x00\x00\x20\x66\x74\x79\x70",): FileInfo(
-        signature=FileSignature.MP4_ALT,
-        media_type="video",
-        mime_type="video/mp4",
-        is_valid=True,
-        description="MP4 video file (QuickTime)"
-    ),
     (b"\x1a\x45\xdf\xa3",): FileInfo(
         signature=FileSignature.WEBM,
         media_type="video",
