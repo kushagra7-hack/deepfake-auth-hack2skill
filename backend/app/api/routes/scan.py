@@ -395,54 +395,54 @@ async def create_scan(
             logger.info(
                 f"[SECURITY OVERRIDE] Running NVIDIA + Gemini in parallel on '{filename}'."
             )
+
+            # ── NVIDIA NIM (Tier-2) — independent try/except ──────────────
+            nvidia_result = None
             try:
-                # ── Run NVIDIA NIM and Google Gemini Flash simultaneously ───────────
-                nvidia_task  = run_gemini_analysis(file_bytes, hf_score_normalized)
-                real_gemini_task = analyze_with_gemini(file_bytes, hf_score_normalized)
+                nvidia_result = await run_gemini_analysis(file_bytes, hf_score_normalized)
+                logger.info(f"[TIER-2/NVIDIA] SUCCESS: {nvidia_result.get('gemini_verdict', '?')}")
+            except Exception as nvidia_err:
+                logger.error(f"[TIER-2/NVIDIA] CRASHED: {type(nvidia_err).__name__}: {nvidia_err}", exc_info=True)
 
-                nvidia_result, real_gemini_result = await asyncio.gather(
-                    nvidia_task, real_gemini_task, return_exceptions=True
-                )
-
-                # ── NVIDIA result ─────────────────────────────────────────────────
-                if isinstance(nvidia_result, Exception):
-                    logger.warning(f"[TIER-2/NVIDIA] Failed: {nvidia_result}")
-                    nvidia_result = {"gemini_verdict": "ANALYSIS_FAILED", "gemini_reasoning": str(nvidia_result)}
-
+            if nvidia_result and isinstance(nvidia_result, dict):
                 gemini_verdict     = nvidia_result.get("gemini_verdict", "AUTHENTIC")
                 gemini_reasoning   = nvidia_result.get("gemini_reasoning", "")
                 gemini_model_used  = nvidia_result.get("gemini_model_used", "")
                 gemini_confidence  = nvidia_result.get("gemini_confidence", None)
                 gemini_tier        = nvidia_result.get("tier", "tier-2")
+            else:
+                # NVIDIA failed — use HF score as proxy verdict
+                gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.45 else "AUTHENTIC"
+                gemini_reasoning = f"NVIDIA model unavailable. Inferred from HF score ({hf_score_normalized*100:.1f}%)."
+                gemini_model_used = "fallback"
+                gemini_confidence = round(hf_score_normalized * 100, 2) if hf_score_normalized >= 0.45 else None
+                gemini_tier = "tier-2-fallback"
 
-                # ── Real Gemini Flash result ──────────────────────────────────
-                if isinstance(real_gemini_result, Exception):
-                    logger.warning(f"[TIER-3/GEMINI] Failed: {real_gemini_result}")
-                    real_gemini_result = {"gemini_verdict": "ANALYSIS_FAILED"}
+            # ── Google Gemini Flash (Tier-3) — independent try/except ─────
+            real_gemini_result = None
+            try:
+                real_gemini_result = await analyze_with_gemini(file_bytes, hf_score_normalized)
+                logger.info(f"[TIER-3/GEMINI] SUCCESS: {real_gemini_result.get('gemini_verdict', '?')}")
+            except Exception as gemini_err:
+                logger.error(f"[TIER-3/GEMINI] CRASHED: {type(gemini_err).__name__}: {gemini_err}", exc_info=True)
 
+            if real_gemini_result and isinstance(real_gemini_result, dict):
                 real_gemini_verdict    = real_gemini_result.get("gemini_verdict", "AUTHENTIC")
-                real_gemini_confidence = real_gemini_result.get("gemini_confidence", None)  # 0-100
+                real_gemini_confidence = real_gemini_result.get("gemini_confidence", None)
                 real_gemini_reasoning  = real_gemini_result.get("gemini_reasoning", "")
+            else:
+                # Gemini failed — use HF score as proxy verdict
+                real_gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.45 else "AUTHENTIC"
+                real_gemini_confidence = round(hf_score_normalized * 100, 2) if hf_score_normalized >= 0.45 else None
+                real_gemini_reasoning = f"Gemini model unavailable. Inferred from HF score ({hf_score_normalized*100:.1f}%)."
 
-                logger.info(
-                    f"[TIER-3/GEMINI] Verdict={real_gemini_verdict} "
-                    f"Confidence={real_gemini_confidence} | {real_gemini_reasoning[:80]}"
-                )
+            logger.info(
+                f"[PIPELINE COMPLETE] NVIDIA={gemini_verdict} | Gemini={real_gemini_verdict} | "
+                f"HF={hf_score_normalized:.4f}"
+            )
 
-                tier_used    = 3
-                status_value = ScanStatus.COMPLETED
-
-            except Exception as err:
-                logger.warning(f"[TIER-2/3] Both AI models failed: {err}")
-                gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
-                gemini_reasoning = f"AI models unavailable. Verdict from HF score ({hf_score_normalized*100:.1f}%)."
-                gemini_model_used = ""
-                gemini_confidence = None
-                gemini_tier = "tier-1-fallback"
-                real_gemini_verdict = "ANALYSIS_FAILED"
-                real_gemini_confidence = None
-                real_gemini_reasoning = ""
-                tier_used = 1
+            tier_used    = 3 if real_gemini_result else (2 if nvidia_result else 1)
+            status_value = ScanStatus.COMPLETED
         else:
             # Video: keep original threshold-based logic
             HF_SUSPICION_THRESHOLD = 0.20
@@ -521,14 +521,14 @@ async def create_scan(
         hf_component   * hf_w
     )
 
-    # Hard floor: if BOTH AI models say DEEPFAKE, score cannot go below 0.70
+    # Hard floor: if BOTH AI models say DEEPFAKE, score cannot go below 0.92
     if gemini_verdict == "DEEPFAKE" and real_gemini_verdict == "DEEPFAKE":
-        ensemble_score = max(ensemble_score, 0.70)
-        logger.info("[ENSEMBLE] Both AI=DEEPFAKE → floor 0.70 applied.")
-    # Soft floor: if either AI says DEEPFAKE, score cannot go below 0.55
+        ensemble_score = max(ensemble_score, 0.92)
+        logger.info("[ENSEMBLE] Both AI=DEEPFAKE → floor 0.92 applied.")
+    # Soft floor: if either AI says DEEPFAKE, score cannot go below 0.78
     elif gemini_verdict == "DEEPFAKE" or real_gemini_verdict == "DEEPFAKE":
-        ensemble_score = max(ensemble_score, 0.55)
-        logger.info("[ENSEMBLE] One AI=DEEPFAKE → floor 0.55 applied.")
+        ensemble_score = max(ensemble_score, 0.78)
+        logger.info("[ENSEMBLE] One AI=DEEPFAKE → floor 0.78 applied.")
 
     # Logic Shield: clamp to [0.0, 1.0]
     threat_score_float = max(0.0, min(1.0, ensemble_score))

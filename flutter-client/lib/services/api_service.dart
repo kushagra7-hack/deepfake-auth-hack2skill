@@ -22,6 +22,8 @@ class ScanResult {
   final double? realGeminiConfidence;
   final String? timestamp;
   final String mediaType;
+  final double? hfScore;
+  final double? nvidiaConfidence;
 
   ScanResult({
     required this.id,
@@ -38,6 +40,8 @@ class ScanResult {
     this.realGeminiConfidence,
     this.timestamp,
     this.mediaType = 'image',
+    this.hfScore,
+    this.nvidiaConfidence,
   });
 
   factory ScanResult.fromJson(Map<String, dynamic> json) {
@@ -66,6 +70,8 @@ class ScanResult {
       timestamp: json['completed_at']?.toString().substring(0, 19) ??
           json['created_at']?.toString().substring(0, 19),
       mediaType: (json['media_type'] ?? 'image').toString().toLowerCase(),
+      hfScore: double.tryParse((details?['hf_score'] ?? '').toString()),
+      nvidiaConfidence: double.tryParse((details?['gemini_confidence'] ?? '').toString()),
     );
   }
 }

@@ -730,6 +730,14 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   List<double> _deriveModelScores(double avgScore) {
     if (avgScore == 0) return [0.0, 0.0, 0.0];
+    // Use real scores from API when available
+    final result = _currentResult;
+    if (result != null) {
+      double hf = (result.hfScore ?? avgScore / 100.0) * 100.0;
+      double nvidia = result.nvidiaConfidence ?? avgScore;
+      double gemini = (result.realGeminiConfidence ?? avgScore);
+      return [hf.clamp(0, 100), nvidia.clamp(0, 100), gemini.clamp(0, 100)];
+    }
     double s1 = (avgScore + 1.5).clamp(0, 100).toDouble();
     double s2 = (avgScore + 0.5).clamp(0, 100).toDouble();
     double s3 = (3 * avgScore - s1 - s2).clamp(0, 100).toDouble();
