@@ -136,27 +136,36 @@ class ApiService {
 
     try {
       // 90s timeout: Render free tier can take up to 50s to cold-start,
-      // plus up to 30s for AI inference. Give plenty of headroom.
+      // plus up to 30s for AI inference.
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 90),
       );
       final response = await http.Response.fromStream(streamedResponse);
 
+      debugPrint('[API] POST /api/scan → ${response.statusCode}');
+      debugPrint('[API] Body preview: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         return ScanResult.fromJson(json);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        // Auth token expired or missing — NOT a connection error
+        throw Exception('Session expired. Please sign out and sign in again.');
       } else {
+        // Try to get the backend detail message
+        String detail = 'Scan failed (HTTP ${response.statusCode})';
         try {
-          final errJson = jsonDecode(response.body);
-          throw Exception(
-              errJson['message'] ?? errJson['detail'] ?? 'Scan failed');
+          final errJson = jsonDecode(response.body) as Map<String, dynamic>;
+          detail = errJson['detail']?.toString() ??
+              errJson['message']?.toString() ??
+              detail;
         } catch (_) {
-          throw Exception(
-              'Backend error ${response.statusCode}: ${response.body}');
+          // body wasn't JSON — use raw
+          detail = 'Backend error ${response.statusCode}: ${response.body.substring(0, response.body.length.clamp(0, 120))}';
         }
+        throw Exception(detail);
       }
     } on TimeoutException {
-      // Specific user-friendly message for cold-start timeout
       throw TimeoutException(
         'Waking up secure gateway, please wait...\n'
         'The server is starting up. Try again in a moment.',

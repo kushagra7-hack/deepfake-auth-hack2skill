@@ -144,15 +144,18 @@ class _DashboardScreenState extends State<DashboardScreen>
         );
       }
     } catch (e) {
+      debugPrint('[SCAN ERROR] $e');
       if (mounted) {
+        // Show the REAL error message so we know what's happening
+        final msg = e.toString().replaceFirst('Exception: ', '');
         toastification.show(
           context: context,
           type: ToastificationType.error,
           style: ToastificationStyle.flat,
           title: const Text('Scan Failed'),
-          description: const Text('Gateway connection lost or payload corrupted.'),
+          description: Text(msg),
           alignment: Alignment.bottomRight,
-          autoCloseDuration: const Duration(seconds: 4),
+          autoCloseDuration: const Duration(seconds: 6),
           primaryColor: Colors.redAccent,
           backgroundColor: Colors.black87,
           foregroundColor: Colors.white,
