@@ -3,6 +3,7 @@
   <img src="https://img.shields.io/badge/Platform-Flutter%20%F0%9F%8C%99-02569B?style=for-the-badge&logo=flutter" alt="Flutter">
   <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/AI-Hugging%20Face-orange?style=for-the-badge&logo=huggingface" alt="Hugging Face">
+  <img src="https://img.shields.io/badge/AI-NVIDIA%20NIM-76B900?style=for-the-badge" alt="NVIDIA NIM">
   <img src="https://img.shields.io/badge/AI-Google%20Gemini-4285F4?style=for-the-badge&logo=google" alt="Google Gemini">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
 </p>
@@ -11,7 +12,7 @@
 
 <p align="center">
   <strong>Zero-Trust AI-Powered Platform to Detect Deepfakes in Images, Video & Audio</strong><br>
-  Built with Flutter • FastAPI • Firebase • Hugging Face • Google Gemini
+  Built with Flutter • FastAPI • Firebase • Hugging Face • NVIDIA NIM • Google Gemini
 </p>
 
 ---
@@ -40,8 +41,9 @@ Deepfakes are weaponized for **fraud, misinformation, and identity theft**. Trad
 │  │   → High-speed initial screening & artifact detection   │  │
 │  └─────────────────────────────────────────────────────────┘  │
 │  ┌─────────────────────────────────────────────────────────┐  │
-│  │ Tier‑2: Google Gemini Multimodal (Gemini 1.5 Pro)       │  │
-│  │   → Deep contextual forensics & semantic reasoning      │  │
+│  │ Tier‑2: NVIDIA NIM & Google Gemini Multimodal           │  │
+│  │   → NVIDIA: Deep visual forensics & pixel-level analysis│  │
+│  │   → Gemini: Contextual forensics & semantic reasoning   │  │
 │  │   → Zero-trust override: Analyzes every media payload   │  │
 │  └─────────────────────────────────────────────────────────┘  │
 │  ┌─────────────────────────────────────────────────────────┐  │
@@ -56,8 +58,8 @@ Deepfakes are weaponized for **fraud, misinformation, and identity theft**. Trad
 
 | Feature | Description |
 |--------|-------------|
-| **Two-Tier AI Pipeline** | Tier-1 = lightning-fast Hugging Face screening, Tier-2 = Google Gemini forensic reasoning |
-| **Zero-Trust Override** | Every payload (regardless of Tier-1 score) undergoes Tier-2 Gemini contextual analysis |────┐  │
+| **Multi-Model AI Pipeline** | Tier-1 = lightning-fast Hugging Face screening, Tier-2 = NVIDIA & Gemini forensic consensus |
+| **Zero-Trust Override** | Every payload (regardless of Tier-1 score) undergoes Tier-2 NVIDIA & Gemini contextual analysis |────┐  │
 │  │ Tier‑2: NVIDIA NIM (llama-3.2-90b-vision-instruct)      │  │
 │  │   → Deep visual forensics, zero-trust override          │  │
 │  │   → Runs on EVERY image regardless of Tier‑1 score    │  │
@@ -112,6 +114,7 @@ cd deepfake-auth-hack2skill
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_CREDENTIALS_PATH=your-project-id-firebase-adminsdk-xxx.json
 HUGGINGFACE_API_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NVIDIA_API_KEY=nvapi-xxxxxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 DEBUG=true
 ```
@@ -191,8 +194,8 @@ curl -X POST http://localhost:8000/api/scan \
 
 | Criterion | Nexus Gateway Excels |
 |-----------|---------------------|
-| **Technical Depth** | Two-tier AI architecture, strict Zero-Trust override, magic-byte inspection |
-| **Innovation** | Leverages Google Gemini's multimodal reasoning to catch edge cases other models miss |
+| **Technical Depth** | Multi-model AI architecture, strict Zero-Trust override, magic-byte inspection |
+| **Innovation** | Leverages both NVIDIA NIM and Google Gemini for unparalleled multi-model consensus |
 | **Scalability** | Stateless FastAPI microservices, horizontal scaling, asynchronous background processing |
 | **Social Impact** | Directly combats deepfake fraud, voice phishing, and AI-generated misinformation |
 | **Code Quality** | Typed Pydantic schemas, robust error handling, premium dark-mode UI/UX |
@@ -214,7 +217,7 @@ curl -X POST http://localhost:8000/api/scan \
 ### Production Checklist
 - [ ] Enable Firebase Authentication (restrict to approved domains)
 - [ ] Set Firestore security rules (deny public read/write)
-- [ ] Add `GEMINI_API_KEY` to production environment secrets
+- [ ] Add `NVIDIA_API_KEY` and `GEMINI_API_KEY` to production environment secrets
 - [ ] Configure TLS/SSL certificates
 - [ ] Set up Prometheus telemetry alerts for `/ready` endpoint
 
@@ -245,6 +248,7 @@ docker run -d -p 8000:8000 --env-file backend/.env nexus-gateway-backend
 ## 🙏 Acknowledgments
 
 - [Google Gemini](https://deepmind.google/technologies/gemini/) — Multimodal semantic reasoning engine
+- [NVIDIA NIM](https://www.nvidia.com/en-us/ai/) — Vision language models and accelerated inference
 - [Hugging Face](https://huggingface.co) — High-speed inference pipelines
 - [Flutter](https://flutter.dev) — High-performance cross-platform UI
 - [FastAPI](https://fastapi.tiangular.com) — Modern Python web framework
