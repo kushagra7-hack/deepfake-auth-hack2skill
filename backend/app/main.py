@@ -178,17 +178,17 @@ async def readiness_check() -> dict[str, Any]:
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
     response = await call_next(request)
-    
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Content-Security-Policy"] = "default-src 'self'"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
+    # NOTE: No Content-Security-Policy here — it blocks Firebase/CDN resources
     return response
 
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests with timing."""
     start_time = datetime.now(timezone.utc)
     response = await call_next(request)
     duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
