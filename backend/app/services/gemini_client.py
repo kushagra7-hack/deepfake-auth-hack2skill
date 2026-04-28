@@ -129,7 +129,37 @@ def _detect_mime_type(data: bytes) -> str:
     if len(data) > 8 and data[4:8] == b"ftyp":       return "video/mp4"
     if len(h) >= 4 and h[:4] == b"\x1a\x45\xdf\xa3": return "video/webm"
     return "image/jpeg"
-
+def _resize_image_bytes(image_bytes: bytes, mime_type: str = "image/jpeg") -> bytes:
+    if len(image_bytes) <= MAX_IMAGE_BYTES:
+        return image_bytes
+    try:
+        import cv2
+        import numpy as np
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        if img is None:
+            return image_bytes
+            
+        h, w = img.shape[:2]
+        if max(w, h) > MAX_IMAGE_LONG_EDGE:
+            scale = MAX_IMAGE_LONG_EDGE / max(w, h)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+            
+        for q in range(90, 30, -10):
+            success, encoded_img = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), q])
+            if success and len(encoded_img.tobytes()) <= MAX_IMAGE_BYTES:
+                return encoded_img.tobytes()
+                
+        success, encoded_img = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
+        if success:
+            return encoded_img.tobytes()
+        return image_bytes
+    except ImportError:
+        logger.warning("[Resize] cv2 not found, sending original")
+        return image_bytes
+    except Exception as e:
+        logger.warning(f"[Resize] Failed ({e}), sending original")
+        return image_bytes
 
 
 
@@ -208,6 +238,7 @@ def _call_vision_model_sync(
     mime_type: str = "image/jpeg",
 ) -> tuple[str, str, Optional[float]]:
     """Synchronous NVIDIA NIM call."""
+    image_bytes = _resize_image_bytes(image_bytes, mime_type)
     b64      = base64.b64encode(image_bytes).decode("utf-8")
     data_url = f"data:{mime_type};base64,{b64}"
 
