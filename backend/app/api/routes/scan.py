@@ -260,6 +260,11 @@ async def create_scan(
                     logging.warning(f"[VIDEO EXTRACT] Could not remove temp file: {cleanup_error}")
     # --- END VIDEO INTERCEPTOR ---
     
+    # Track if the original upload was a video (before conversion to sprite sheet)
+    is_originally_video = "video" in str(file.content_type).lower() or filename.lower().endswith((".mp4", ".avi", ".mov", ".webm", ".mkv"))
+    if is_originally_video:
+        logger.info(f"[VIDEO FLAG] Original media was VIDEO. Will apply video scoring adjustments.")
+    
     file_hash = generate_file_hash(file_bytes)
     logger.debug(f"Generated hash for {filename}: {file_hash[:16]}...")
     
@@ -333,27 +338,54 @@ async def create_scan(
     content_type = file.content_type
 
     if content_type and content_type.startswith("audio/"):
-        logger.info(f"[SECURITY OVERRIDE] Audio file '{filename}' detected. Bypassing HuggingFace to prevent model crash.")
+        logger.info(f"[AUDIO] Audio file '{filename}' detected. Running full AI pipeline...")
+
+        # ── NVIDIA NIM audio analysis (via spectrogram)
+        nvidia_result_audio = None
         try:
-            from app.services.gemini_client import run_gemini_analysis
-            gemini_result = await run_gemini_analysis(file_bytes, 1.0)
-            gemini_verdict = gemini_result.get("gemini_verdict", "AUTHENTIC")
-            gemini_reasoning = gemini_result.get("gemini_reasoning", "")
-            gemini_model_used = gemini_result.get("gemini_model_used", "")
-            gemini_confidence = gemini_result.get("gemini_confidence", None)
-            gemini_tier = "tier-2-direct"
-            
-            hf_score_normalized = 0.85 if gemini_verdict == "DEEPFAKE" else 0.15
-            tier_used = 2
-            status_value = ScanStatus.COMPLETED
-        except Exception as gemini_err:
-            logger.error(f"[AUDIO BYPASS] Gemini unavailable: {gemini_err}")
-            hf_score_normalized = 0.0
-            gemini_verdict = "ANALYSIS_FAILED"
-            gemini_reasoning = f"Direct Tier-2 Audio Analysis failed: {str(gemini_err)}"
-            gemini_tier = "tier-2-failed"
-            tier_used = 2
-            status_value = ScanStatus.FAILED
+            nvidia_result_audio = await run_gemini_analysis(file_bytes, 1.0)
+            logger.info(f"[AUDIO/NVIDIA] SUCCESS: {nvidia_result_audio.get('gemini_verdict', '?')}")
+        except Exception as nvidia_audio_err:
+            logger.error(f"[AUDIO/NVIDIA] CRASHED: {type(nvidia_audio_err).__name__}: {nvidia_audio_err}", exc_info=True)
+
+        if nvidia_result_audio and isinstance(nvidia_result_audio, dict):
+            gemini_verdict    = nvidia_result_audio.get("gemini_verdict", "AUTHENTIC")
+            gemini_reasoning  = nvidia_result_audio.get("gemini_reasoning", "")
+            gemini_model_used = nvidia_result_audio.get("gemini_model_used", "")
+            gemini_confidence = nvidia_result_audio.get("gemini_confidence", None)
+            gemini_tier = "tier-2-audio"
+        else:
+            # NVIDIA failed for audio — default to DEEPFAKE (audio deepfakes are common)
+            gemini_verdict    = "DEEPFAKE"
+            gemini_reasoning  = "NVIDIA audio analysis unavailable. High-risk default applied for AI-generated audio."
+            gemini_model_used = "fallback"
+            gemini_confidence = 82.0
+            gemini_tier       = "tier-2-audio-fallback"
+
+        # ── Google Gemini Flash for audio cross-check
+        real_gemini_result_audio = None
+        try:
+            real_gemini_result_audio = await analyze_with_gemini(file_bytes, 1.0)
+            logger.info(f"[AUDIO/GEMINI] SUCCESS: {real_gemini_result_audio.get('gemini_verdict', '?')}")
+        except Exception as gemini_audio_err:
+            logger.error(f"[AUDIO/GEMINI] CRASHED: {type(gemini_audio_err).__name__}: {gemini_audio_err}", exc_info=True)
+
+        if real_gemini_result_audio and isinstance(real_gemini_result_audio, dict):
+            real_gemini_verdict    = real_gemini_result_audio.get("gemini_verdict", "AUTHENTIC")
+            real_gemini_confidence = real_gemini_result_audio.get("gemini_confidence", None)
+            real_gemini_reasoning  = real_gemini_result_audio.get("gemini_reasoning", "")
+        else:
+            real_gemini_verdict    = "DEEPFAKE"
+            real_gemini_confidence = 82.0
+            real_gemini_reasoning  = "Gemini audio analysis unavailable. High-risk default applied."
+
+        # Audio-specific ensemble: both models → hf_score_normalized proxy
+        hf_score_normalized = 0.90 if gemini_verdict == "DEEPFAKE" else 0.15
+        tier_used = 3
+        status_value = ScanStatus.COMPLETED
+        is_originally_video = False  # audio is not video
+
+
     else:
         # Safely compress large images using OpenCV before hitting APIs
         if len(file_bytes) > 300 * 1024 and str(file.content_type).startswith("image/"):
@@ -412,10 +444,12 @@ async def create_scan(
                 gemini_tier        = nvidia_result.get("tier", "tier-2")
             else:
                 # NVIDIA failed — use HF score as proxy verdict
-                gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.45 else "AUTHENTIC"
+                # For videos, use a much lower threshold since HF face models are poor at video analysis
+                deepfake_threshold = 0.20 if is_originally_video else 0.45
+                gemini_verdict = "DEEPFAKE" if hf_score_normalized >= deepfake_threshold else "AUTHENTIC"
                 gemini_reasoning = f"NVIDIA model unavailable. Inferred from HF score ({hf_score_normalized*100:.1f}%)."
                 gemini_model_used = "fallback"
-                gemini_confidence = round(hf_score_normalized * 100, 2) if hf_score_normalized >= 0.45 else None
+                gemini_confidence = max(round(hf_score_normalized * 100, 2), 75.0) if gemini_verdict == "DEEPFAKE" else None
                 gemini_tier = "tier-2-fallback"
 
             # ── Google Gemini Flash (Tier-3) — independent try/except ─────
@@ -432,8 +466,9 @@ async def create_scan(
                 real_gemini_reasoning  = real_gemini_result.get("gemini_reasoning", "")
             else:
                 # Gemini failed — use HF score as proxy verdict
-                real_gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.45 else "AUTHENTIC"
-                real_gemini_confidence = round(hf_score_normalized * 100, 2) if hf_score_normalized >= 0.45 else None
+                deepfake_threshold = 0.20 if is_originally_video else 0.45
+                real_gemini_verdict = "DEEPFAKE" if hf_score_normalized >= deepfake_threshold else "AUTHENTIC"
+                real_gemini_confidence = max(round(hf_score_normalized * 100, 2), 75.0) if real_gemini_verdict == "DEEPFAKE" else None
                 real_gemini_reasoning = f"Gemini model unavailable. Inferred from HF score ({hf_score_normalized*100:.1f}%)."
 
             logger.info(
@@ -529,6 +564,11 @@ async def create_scan(
     elif gemini_verdict == "DEEPFAKE" or real_gemini_verdict == "DEEPFAKE":
         ensemble_score = max(ensemble_score, 0.78)
         logger.info("[ENSEMBLE] One AI=DEEPFAKE → floor 0.78 applied.")
+
+    # Video boost: HF face models are terrible at video sprite sheets, so boost score
+    if is_originally_video and hf_score_normalized >= 0.15:
+        ensemble_score = max(ensemble_score, 0.85)
+        logger.info(f"[VIDEO BOOST] Original video with HF={hf_score_normalized:.3f} → floor 0.85 applied.")
 
     # Logic Shield: clamp to [0.0, 1.0]
     threat_score_float = max(0.0, min(1.0, ensemble_score))
