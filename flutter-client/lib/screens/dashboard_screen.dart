@@ -730,17 +730,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                   );
                 },
               ),
-            Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: kWhite.withOpacity(0.1), width: 1),
-              ),
+              Container(
+                width: 160,
+                height: 160,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: kWhite.withOpacity(0.1), width: 1),
+                ),
                 child: CustomPaint(
                   painter: _CircularScorePainter(score / 100, threatColor),
                   child: Center(
-                    child: _isScanning 
+                    child: _isScanning
                         ? Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -761,7 +761,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Text(
                                 score.toStringAsFixed(1),
                                 style: GoogleFonts.outfit(
-                                  color: kWhite,
+                                  color: threatColor,
                                   fontSize: 48,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -773,7 +773,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 4),
                               Text(
                                 'THREAT SCORE',
                                 style: GoogleFonts.outfit(
@@ -787,43 +787,47 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
               ),
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return Opacity(
-                  opacity: _isScanning ? (_pulseAnimation.value > 1.1 ? 1.0 : 0.5) : 1.0,
-                  child: Text(
-                    verdict.toUpperCase(),
-                    style: GoogleFonts.outfit(
-                      color: threatColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Verdict text — OUTSIDE the Stack so it never overlaps the gauge
+          AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _isScanning ? (_pulseAnimation.value > 1.1 ? 1.0 : 0.5) : 1.0,
+                child: Text(
+                  verdict.toUpperCase(),
+                  style: GoogleFonts.outfit(
+                    color: threatColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
                   ),
-                );
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'CONFIDENCE: ${score.toStringAsFixed(1)}%',
-          style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
-        ),
-        const SizedBox(height: 24),
-        _buildEnsembleRow(score),
-      ],
-    );
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'CONFIDENCE: ${score.toStringAsFixed(1)}%',
+            style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          _buildEnsembleRow(score),
+        ],
+      );
 
-    return GlassCard(
-      title: 'SCAN RESULT',
-      subtitle: 'LIVE ANALYSIS OUTPUT',
-      isExpanded: isExpanded,
-      child: content,
-    );
-  }
+      return GlassCard(
+        title: 'SCAN RESULT',
+        subtitle: 'LIVE ANALYSIS OUTPUT',
+        isExpanded: isExpanded,
+        child: content,
+      );
+    }
 
   Widget _buildEnsembleRow(double mainScore) {
     final scores = _deriveModelScores(mainScore);
@@ -899,11 +903,12 @@ class _DashboardScreenState extends State<DashboardScreen>
       title: 'UPLOAD PREVIEW',
       isExpanded: isExpanded,
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Image thumbnail
           Container(
-            height: 180,
+            height: 120,
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
@@ -919,7 +924,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   )
                 : const Center(child: Icon(Icons.image_outlined, color: kGray600, size: 48)),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          // Metadata rows — always below image, never overlapping
           _buildMetadataRow('FILE NAME', _selectedFile?.name ?? 'No file selected'),
           _buildMetadataRow('FILE TYPE', _selectedFile?.extension?.toUpperCase() ?? '--'),
           _buildMetadataRow('FILE SIZE', _selectedFile != null ? '${(_selectedFile!.size / 1024 / 1024).toStringAsFixed(2)} MB' : '--'),
