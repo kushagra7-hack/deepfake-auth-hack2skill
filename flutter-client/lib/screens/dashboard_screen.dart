@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -126,14 +127,30 @@ class _DashboardScreenState extends State<DashboardScreen>
           foregroundColor: Colors.white,
         );
       }
+    } on TimeoutException catch (e) {
+      // Render cold-start: show a friendly 'waking up' message instead of error
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.warning,
+          style: ToastificationStyle.flat,
+          title: const Text('Gateway Waking Up'),
+          description: Text(e.message ?? 'Waking up secure gateway, please wait...'),
+          alignment: Alignment.bottomRight,
+          autoCloseDuration: const Duration(seconds: 8),
+          primaryColor: Colors.orangeAccent,
+          backgroundColor: Colors.black87,
+          foregroundColor: Colors.white,
+        );
+      }
     } catch (e) {
       if (mounted) {
         toastification.show(
           context: context,
           type: ToastificationType.error,
           style: ToastificationStyle.flat,
-          title: Text('Scan Failed'),
-          description: Text('Gateway connection lost or payload corrupted.'),
+          title: const Text('Scan Failed'),
+          description: const Text('Gateway connection lost or payload corrupted.'),
           alignment: Alignment.bottomRight,
           autoCloseDuration: const Duration(seconds: 4),
           primaryColor: Colors.redAccent,

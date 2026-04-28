@@ -64,12 +64,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Explicit origins list: browser blocks credentials=true with wildcard *
+# Always include the Firebase hosting URL and local dev ports.
+_ALLOWED_ORIGINS = [
+    "https://nexus-gateway-cca4c.web.app",
+    "https://nexus-gateway-cca4c.firebaseapp.com",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://localhost:5000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8080",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=False, # Must be False when origins is [*]
-    allow_methods=["*"], 
-    allow_headers=["*"], 
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=True,  # Safe because we use explicit origins, not [*]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
     max_age=600,
 )
 
@@ -177,30 +189,14 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all incoming requests and bypass OPTIONS."""
-    if request.method == "OPTIONS":
-        from fastapi.responses import Response
-        return Response(status_code=200, headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        })
-
     start_time = datetime.now(timezone.utc)
-    
     response = await call_next(request)
-    
     duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
-    
     logger.info(
         f"{request.method} {request.url.path} - "
         f"Status: {response.status_code} - "
         f"Duration: {duration_ms:.2f}ms"
     )
-    
     return response
 
 

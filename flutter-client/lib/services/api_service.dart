@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -133,25 +134,33 @@ class ApiService {
       throw Exception('Could not read file: no bytes or path available.');
     }
 
-    final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 60),
-      onTimeout: () =>
-          throw Exception('Server timed out. Is the backend running?'),
-    );
-    final response = await http.Response.fromStream(streamedResponse);
+    try {
+      // 90s timeout: Render free tier can take up to 50s to cold-start,
+      // plus up to 30s for AI inference. Give plenty of headroom.
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 90),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return ScanResult.fromJson(json);
-    } else {
-      try {
-        final errJson = jsonDecode(response.body);
-        throw Exception(
-            errJson['message'] ?? errJson['detail'] ?? 'Scan failed');
-      } catch (_) {
-        throw Exception(
-            'Backend error ${response.statusCode}: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return ScanResult.fromJson(json);
+      } else {
+        try {
+          final errJson = jsonDecode(response.body);
+          throw Exception(
+              errJson['message'] ?? errJson['detail'] ?? 'Scan failed');
+        } catch (_) {
+          throw Exception(
+              'Backend error ${response.statusCode}: ${response.body}');
+        }
       }
+    } on TimeoutException {
+      // Specific user-friendly message for cold-start timeout
+      throw TimeoutException(
+        'Waking up secure gateway, please wait...\n'
+        'The server is starting up. Try again in a moment.',
+      );
     }
   }
 
@@ -164,13 +173,20 @@ class ApiService {
     }
     final uri = Uri.parse(url);
     final headers = await _authHeaders();
-    final response = await http.get(uri, headers: headers);
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final scans = json['scans'] as List<dynamic>;
-      return scans
-          .map((s) => ScanResult.fromJson(s as Map<String, dynamic>))
-          .toList();
+    try {
+      final response = await http.get(uri, headers: headers)
+          .timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final scans = json['scans'] as List<dynamic>;
+        return scans
+            .map((s) => ScanResult.fromJson(s as Map<String, dynamic>))
+            .toList();
+      }
+    } on TimeoutException {
+      debugPrint('getScanHistory: gateway waking up, returning empty list');
+    } catch (e) {
+      debugPrint('getScanHistory error: $e');
     }
     return [];
   }
