@@ -355,6 +355,25 @@ async def create_scan(
             tier_used = 2
             status_value = ScanStatus.FAILED
     else:
+        # Safely compress large images using OpenCV before hitting APIs
+        if len(file_bytes) > 300 * 1024 and str(file.content_type).startswith("image/"):
+            try:
+                import cv2
+                import numpy as np
+                np_arr = np.frombuffer(file_bytes, np.uint8)
+                img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                if img is not None:
+                    h, w = img.shape[:2]
+                    if max(w, h) > 1024:
+                        scale = 1024 / max(w, h)
+                        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                    success, encoded_img = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                    if success:
+                        file_bytes = encoded_img.tobytes()
+                        logger.info(f"[IMAGE COMPRESSION] Reduced payload to {len(file_bytes)} bytes")
+            except Exception as e:
+                logger.warning(f"[IMAGE COMPRESSION] OpenCV resize failed: {e}")
+
         try:
             logger.info(f"[TIER-1] Dispatching '{filename}' to HuggingFace deepfake model …")
             analysis_result = await analyze_deepfake(file_bytes, file_info)
