@@ -131,27 +131,7 @@ def _detect_mime_type(data: bytes) -> str:
     return "image/jpeg"
 
 
-def _resize_image_bytes(image_bytes: bytes, mime_type: str = "image/jpeg") -> bytes:
-    if len(image_bytes) <= MAX_IMAGE_BYTES:
-        return image_bytes
-    try:
-        from PIL import Image as PILImage
-        img = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
-        w, h = img.size
-        if max(w, h) > MAX_IMAGE_LONG_EDGE:
-            scale = MAX_IMAGE_LONG_EDGE / max(w, h)
-            img   = img.resize((int(w * scale), int(h * scale)), PILImage.LANCZOS)
-        for q in range(88, 30, -10):
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=q, optimize=True)
-            if len(buf.getvalue()) <= MAX_IMAGE_BYTES:
-                return buf.getvalue()
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=35)
-        return buf.getvalue()
-    except Exception as e:
-        logger.warning(f"[Resize] Failed ({e}), sending original")
-        return image_bytes
+
 
 
 def _audio_to_spectrogram_jpeg(audio_bytes: bytes) -> Optional[bytes]:
@@ -227,9 +207,8 @@ def _call_vision_model_sync(
     prompt: str,
     mime_type: str = "image/jpeg",
 ) -> tuple[str, str, Optional[float]]:
-    """Synchronous NVIDIA NIM call — run via run_in_executor."""
-    image_bytes = _resize_image_bytes(image_bytes, mime_type)
-    b64      = base64.b64encode(image_bytes).decode()
+    """Synchronous NVIDIA NIM call."""
+    b64      = base64.b64encode(image_bytes).decode("utf-8")
     data_url = f"data:{mime_type};base64,{b64}"
 
     client   = _get_nvidia_client()
@@ -257,19 +236,8 @@ def _call_vision_model_sync(
         logger.debug(f"[TIER-2] Logprobs skipped: {e}")
 
     raw_text = response.choices[0].message.content or ""
+    logger.info(f"[TIER-2] Model raw response: {raw_text[:300]}")
     return raw_text, model_used, confidence
-
-
-async def _call_vision_model(
-    image_bytes: bytes,
-    prompt: str,
-    mime_type: str = "image/jpeg",
-) -> tuple[str, str, Optional[float]]:
-    """Async wrapper — runs sync call in a thread pool."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
-        None, _call_vision_model_sync, image_bytes, prompt, mime_type
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -327,18 +295,25 @@ def _error_response(media: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Sub-pipelines
+# Sub-pipelines — using proven closure-in-executor pattern
 # ---------------------------------------------------------------------------
 
 async def _analyze_image(image_bytes: bytes, mime: str, hf_pct: float) -> dict:
+    prompt = FORENSICS_PROMPT_TEMPLATE.format(hf_score_pct=hf_pct)
+
+    def _blocking_call():
+        return _call_vision_model_sync(image_bytes, prompt, mime)
+
     try:
-        prompt = FORENSICS_PROMPT_TEMPLATE.format(hf_score_pct=hf_pct)
-        raw, model, conf = await _call_vision_model(image_bytes, prompt, mime)
-        logger.info(f"[TIER-2][Image] model={model} conf={conf} raw[:80]={raw[:80]}")
+        raw, model, conf = await asyncio.get_event_loop().run_in_executor(
+            None, _blocking_call
+        )
+        logger.info(f"[TIER-2][Image] model={model} conf={conf}")
         return _parse_verdict(raw, model, conf, "tier-2-image")
     except Exception as e:
-        logger.error(f"[TIER-2][Image] Failed: {e}")
+        logger.error(f"[TIER-2][Image] Failed: {e}", exc_info=True)
         return _error_response("image")
+
 
 
 async def _analyze_audio(audio_bytes: bytes, hf_pct: float) -> dict:
@@ -352,8 +327,14 @@ async def _analyze_audio(audio_bytes: bytes, hf_pct: float) -> dict:
             "tier": "tier-2-audio-fallback",
         }
     try:
-        prompt = AUDIO_SPECTROGRAM_PROMPT.format(hf_score_pct=hf_pct)
-        raw, model, conf = await _call_vision_model(spec, prompt, "image/jpeg")
+        spec_prompt = AUDIO_SPECTROGRAM_PROMPT.format(hf_score_pct=hf_pct)
+
+        def _blocking_call():
+            return _call_vision_model_sync(spec, spec_prompt, "image/jpeg")
+
+        raw, model, conf = await asyncio.get_event_loop().run_in_executor(
+            None, _blocking_call
+        )
         result = _parse_verdict(raw, model, conf, "tier-2-audio-spectrogram")
         result["gemini_reasoning"] = "[Spectrogram] " + result.get("gemini_reasoning", "")
         return result
@@ -368,8 +349,12 @@ async def _analyze_video(video_bytes: bytes, hf_pct: float) -> dict:
     prompt = FORENSICS_PROMPT_TEMPLATE.format(hf_score_pct=hf_pct)
 
     async def _one(fb: bytes, idx: int) -> Optional[dict]:
+        def _blocking_call():
+            return _call_vision_model_sync(fb, prompt, "image/jpeg")
         try:
-            raw, model, conf = await _call_vision_model(fb, prompt, "image/jpeg")
+            raw, model, conf = await asyncio.get_event_loop().run_in_executor(
+                None, _blocking_call
+            )
             return _parse_verdict(raw, model, conf, f"tier-2-video-f{idx+1}")
         except Exception as e:
             logger.warning(f"[TIER-2][Video] frame {idx+1}: {e}")
@@ -385,6 +370,7 @@ async def _analyze_video(video_bytes: bytes, hf_pct: float) -> dict:
     worst["all_frame_verdicts"]    = [r["gemini_verdict"] for r in results]
     worst["tier"]                  = "tier-2-video"
     return worst
+
 
 
 # ---------------------------------------------------------------------------

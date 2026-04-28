@@ -1059,6 +1059,240 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
+  // ── Full Analysis Dialog ─────────────────────────────────────────────────
+  void _showFullAnalysisDialog() {
+    final r = _currentResult;
+    if (r == null) return;
+    final score = (r.threatScore * 100).clamp(0.0, 100.0);
+    final color = _getThreatColor(score);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF0D0F14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: color.withOpacity(0.3)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Icon(Icons.shield_outlined, color: color, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'FORENSIC ANALYSIS REPORT',
+                          style: GoogleFonts.outfit(
+                            color: kWhite,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: kGray400),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    r.fileName,
+                    style: GoogleFonts.outfit(color: kGray400, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Threat score bar
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: color.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          '${score.toStringAsFixed(1)}%',
+                          style: GoogleFonts.outfit(
+                            color: color, fontSize: 32, fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _getScoreLabel(score),
+                                style: GoogleFonts.outfit(
+                                  color: color, fontSize: 14, fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (r.geminiConfidenceLabel != null)
+                                Text(
+                                  'Confidence: ${r.geminiConfidenceLabel}',
+                                  style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // NVIDIA Reasoning
+                  _analysisSection(
+                    'NVIDIA LLaMA-90B Analysis',
+                    Icons.psychology,
+                    const Color(0xFF76B900),
+                    r.geminiReasoning ?? 'No NVIDIA analysis available.',
+                  ),
+
+                  // Flagged Items
+                  if (r.flaggedItems.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'FLAGGED ARTIFACTS (${r.flaggedItems.length})',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFFFF4D4D), fontSize: 13, fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...r.flaggedItems.map((item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.warning_amber, color: Color(0xFFFF4D4D), size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: GoogleFonts.outfit(color: const Color(0xFFFFAAAA), fontSize: 12, height: 1.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+
+                  // Passed Items
+                  if (r.passedItems.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'PASSED CHECKS (${r.passedItems.length})',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF00E676), fontSize: 13, fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...r.passedItems.map((item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: Color(0xFF00E676), size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: GoogleFonts.outfit(color: const Color(0xFFAAFFCC), fontSize: 12, height: 1.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+
+                  // Gemini Flash Analysis
+                  if (r.realGeminiReasoning != null && r.realGeminiReasoning!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _analysisSection(
+                      'Google Gemini Flash Analysis',
+                      Icons.auto_awesome,
+                      const Color(0xFF4285F4),
+                      r.realGeminiReasoning!,
+                    ),
+                    if (r.realGeminiConfidence != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Gemini Confidence: ${r.realGeminiConfidence!.toStringAsFixed(1)}%',
+                          style: GoogleFonts.outfit(color: kGray400, fontSize: 11),
+                        ),
+                      ),
+                  ],
+
+                  const SizedBox(height: 24),
+                  // Close button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: color.withOpacity(0.15),
+                        foregroundColor: color,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: color.withOpacity(0.3)),
+                        ),
+                      ),
+                      child: Text('CLOSE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _analysisSection(String title, IconData icon, Color color, String text) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: GoogleFonts.outfit(color: color, fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.15)),
+          ),
+          child: Text(
+            text,
+            style: GoogleFonts.outfit(color: kGray400, fontSize: 12, height: 1.6),
+          ),
+        ),
+      ],
+    );
+  }
+
   // Desktop card wrapper (isExpanded:true = Expanded inside GlassCard,
   // which is safe because the parent Row has a bounded height of 240px)
   Widget _buildAiReasoning({bool isExpanded = true}) {
@@ -1093,12 +1327,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         _buildPrimaryButton(
           label: 'VIEW FULL ANALYSIS',
           icon: Icons.open_in_full,
-          onPressed: () {},
+          onPressed: _currentResult != null ? () => _showFullAnalysisDialog() : null,
           isCompact: true,
         ),
       ],
     );
   }
+
 
   Widget _buildGeminiVerdict({bool isExpanded = true}) {
     return GlassCard(

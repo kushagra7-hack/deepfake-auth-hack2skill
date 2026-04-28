@@ -14,8 +14,14 @@ class ScanResult {
   final String status;
   final String? geminiVerdict;
   final String? geminiReasoning;
+  final String? geminiConfidenceLabel;
+  final List<String> flaggedItems;
+  final List<String> passedItems;
+  final String? realGeminiVerdict;
+  final String? realGeminiReasoning;
+  final double? realGeminiConfidence;
   final String? timestamp;
-  final String mediaType; // 'image' | 'video' | 'audio'
+  final String mediaType;
 
   ScanResult({
     required this.id,
@@ -24,6 +30,12 @@ class ScanResult {
     required this.status,
     this.geminiVerdict,
     this.geminiReasoning,
+    this.geminiConfidenceLabel,
+    this.flaggedItems = const [],
+    this.passedItems = const [],
+    this.realGeminiVerdict,
+    this.realGeminiReasoning,
+    this.realGeminiConfidence,
     this.timestamp,
     this.mediaType = 'image',
   });
@@ -38,12 +50,26 @@ class ScanResult {
       status: json['status'] ?? 'unknown',
       geminiVerdict: details?['gemini_verdict']?.toString(),
       geminiReasoning: details?['gemini_reasoning']?.toString(),
+      geminiConfidenceLabel: details?['gemini_confidence_label']?.toString(),
+      flaggedItems: (details?['flagged_items'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      passedItems: (details?['passed_items'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      realGeminiVerdict: details?['real_gemini_verdict']?.toString(),
+      realGeminiReasoning: details?['real_gemini_reasoning']?.toString(),
+      realGeminiConfidence: double.tryParse(
+          (details?['real_gemini_confidence'] ?? '').toString()),
       timestamp: json['completed_at']?.toString().substring(0, 19) ??
           json['created_at']?.toString().substring(0, 19),
       mediaType: (json['media_type'] ?? 'image').toString().toLowerCase(),
     );
   }
 }
+
 
 /// Mirrors the React `ScanStatsResponse` returned by GET /api/scan/stats
 class ScanStats {
