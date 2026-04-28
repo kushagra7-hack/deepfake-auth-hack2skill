@@ -26,3 +26,9 @@ Thumbs.db
 # Credentials
 *firebase-adminsdk*.json
 google-services.json
+
+# Ignore specific backend test scripts
+backend/test_api_key.py
+backend/test_hf_client.py
+backend/test_local_pipeline.py
+backend/test_nvidia.py
