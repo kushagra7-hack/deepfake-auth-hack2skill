@@ -691,7 +691,21 @@ class _DashboardScreenState extends State<DashboardScreen>
   Color _getThreatColor(double score) {
     if (score > 75) return Colors.redAccent;
     if (score >= 40) return Colors.orangeAccent;
-    return Colors.greenAccent;
+    return const Color(0xFF00D1FF); // Cyber Blue for safe
+  }
+
+  /// Returns the primary verdict label based on score (overrides raw backend string)
+  String _getScoreLabel(double score) {
+    if (score > 75) return 'DEEPFAKE';
+    if (score >= 40) return 'SUSPICIOUS';
+    return 'AUTHENTIC';
+  }
+
+  /// Returns the severity badge text based on score
+  String _getScoreSeverity(double score) {
+    if (score > 75) return 'CRITICAL';
+    if (score >= 40) return 'REVIEW';
+    return 'MEDIA IS SAFE';
   }
 
   List<double> _deriveModelScores(double avgScore) {
@@ -703,9 +717,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildScanResultMain({bool isExpanded = true}) {
-    final score = (_currentResult?.threatScore ?? 0.0) * 100;
+    // Chain B: clamp to 0-100 to prevent score bugs like 2453.0
+    final rawScore = (_currentResult?.threatScore ?? 0.0) * 100;
+    final score = rawScore.clamp(0.0, 100.0);
     final threatColor = _getThreatColor(score);
-    final verdict = _isScanning ? 'AWAITING NEURAL CONSENSUS' : (_currentResult?.geminiVerdict ?? 'AWAITING SCAN');
+    final isCritical = score > 75;
+    // Score-based verdict overrides raw backend string
+    final verdict = _isScanning
+        ? 'AWAITING NEURAL CONSENSUS'
+        : (_currentResult != null ? _getScoreLabel(score) : 'AWAITING SCAN');
     
     final content = Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -790,14 +810,18 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
           const SizedBox(height: 16),
-          // Verdict text — OUTSIDE the Stack so it never overlaps the gauge
+          // Verdict text — OUTSIDE the Stack, score-based label
           AnimatedBuilder(
             animation: _pulseAnimation,
             builder: (context, child) {
+              // Pulse opacity only fires when score is CRITICAL
+              final opacity = isCritical
+                  ? _pulseAnimation.value.clamp(0.6, 1.0)
+                  : (_isScanning ? (_pulseAnimation.value > 1.1 ? 1.0 : 0.5) : 1.0);
               return Opacity(
-                opacity: _isScanning ? (_pulseAnimation.value > 1.1 ? 1.0 : 0.5) : 1.0,
+                opacity: opacity,
                 child: Text(
-                  verdict.toUpperCase(),
+                  verdict,
                   style: GoogleFonts.outfit(
                     color: threatColor,
                     fontSize: 16,
@@ -810,6 +834,26 @@ class _DashboardScreenState extends State<DashboardScreen>
               );
             },
           ),
+          const SizedBox(height: 4),
+          // Severity badge (CRITICAL / REVIEW / MEDIA IS SAFE)
+          if (_currentResult != null || _isScanning)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: threatColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: threatColor.withOpacity(0.3)),
+              ),
+              child: Text(
+                _isScanning ? '...' : _getScoreSeverity(score),
+                style: GoogleFonts.outfit(
+                  color: threatColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
           Text(
             'CONFIDENCE: ${score.toStringAsFixed(1)}%',
@@ -1037,7 +1081,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildGeminiVerdict({bool isExpanded = true}) {
-    final isDeepfake = _currentResult?.geminiVerdict == 'DEEPFAKE';
     return GlassCard(
       title: 'GEMINI VERDICT',
       isExpanded: isExpanded,
@@ -1046,44 +1089,56 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildGeminiVerdictContent({bool isExpanded = true}) {
-    final isDeepfake = _currentResult?.geminiVerdict == 'DEEPFAKE';
+    // Use score-based logic — not raw backend string — to decide verdict
+    final rawScore = (_currentResult?.threatScore ?? 0.0) * 100;
+    final score = rawScore.clamp(0.0, 100.0);
+    final verdictLabel = _currentResult != null ? _getScoreLabel(score) : null;
+    final severityLabel = _currentResult != null ? _getScoreSeverity(score) : null;
+    final verdictColor = _getThreatColor(score);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-          Text(
-            _currentResult != null ? (isDeepfake ? 'DEEPFAKE DETECTED' : 'AUTHENTIC CONTENT') : 'AWAITING ANALYSIS',
-            style: GoogleFonts.outfit(
-              color: kWhite,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
+        Text(
+          verdictLabel != null ? '$verdictLabel DETECTED' : 'AWAITING ANALYSIS',
+          style: GoogleFonts.outfit(
+            color: verdictLabel != null ? verdictColor : kWhite,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _currentResult != null
+              ? 'The content has been classified with high confidence.'
+              : 'Upload a payload to see the verdict.',
+          style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (severityLabel != null) ...[
           const SizedBox(height: 12),
-          Text(
-            _currentResult != null
-                ? 'The content has been classified with high confidence.'
-                : 'Upload a payload to see the verdict.',
-            style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (_currentResult != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: kWhite.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                isDeepfake ? 'CRITICAL' : 'SAFE',
-                style: GoogleFonts.outfit(color: kWhite, fontSize: 10, fontWeight: FontWeight.bold),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: verdictColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: verdictColor.withOpacity(0.3)),
+            ),
+            child: Text(
+              severityLabel,
+              style: GoogleFonts.outfit(
+                color: verdictColor,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
               ),
             ),
-          ],
+          ),
+        ],
           const SizedBox(height: 24),
           Row(
             children: [
