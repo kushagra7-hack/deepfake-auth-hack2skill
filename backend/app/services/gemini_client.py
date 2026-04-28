@@ -189,35 +189,54 @@ def _audio_to_spectrogram_jpeg(audio_bytes: bytes) -> Optional[bytes]:
 
 
 def _extract_video_frame_jpegs(video_bytes: bytes, n: int = 4) -> list[bytes]:
+    import tempfile
+    import os
     try:
-        import av
-        from PIL import Image as PILImage
-        container = av.open(io.BytesIO(video_bytes))
-        stream    = container.streams.video[0]
-        stream.codec_context.skip_frame = "NONKEY"
-        duration  = float(stream.duration or 0) * float(stream.time_base)
-        frames: list[bytes] = []
-        for pct in [0.05, 0.25, 0.50, 0.75][:n]:
-            try:
-                ts = int(pct * duration / float(stream.time_base))
-                container.seek(ts, stream=stream, any_frame=False, backward=True)
-                for packet in container.demux(stream):
-                    for frame in packet.decode():
-                        buf = io.BytesIO()
-                        frame.to_image().convert("RGB").save(buf, format="JPEG", quality=90)
-                        frames.append(buf.getvalue())
-                        break
-                    break
-            except Exception as e:
-                logger.debug(f"[Video] Seek {pct:.0%} failed: {e}")
-        container.close()
-        if frames:
-            logger.info(f"[Video] Extracted {len(frames)} frames")
-            return frames
+        import cv2
+        # Write bytes to a temporary file because OpenCV cannot read videos directly from memory
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+            tmp.write(video_bytes)
+            tmp_path = tmp.name
+
+        try:
+            cap = cv2.VideoCapture(tmp_path)
+            if not cap.isOpened():
+                logger.warning("[Video] OpenCV could not open video container")
+                return [video_bytes[:2 * 1024 * 1024]]
+
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if total_frames <= 0:
+                total_frames = 100 # Fallback estimate
+
+            frames: list[bytes] = []
+            for pct in [0.05, 0.25, 0.50, 0.75][:n]:
+                frame_idx = int(pct * total_frames)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                if ret:
+                    # Compress the extracted frame as a JPEG
+                    success, encoded_img = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                    if success:
+                        frames.append(encoded_img.tobytes())
+                else:
+                    logger.debug(f"[Video] Frame read at index {frame_idx} failed")
+            
+            cap.release()
+            
+            if frames:
+                logger.info(f"[Video] Extracted {len(frames)} frames using OpenCV")
+                return frames
+        finally:
+            # Always clean up the temp file
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+                
     except ImportError:
-        logger.warning("[Video] PyAV not installed — pip install av")
+        logger.warning("[Video] cv2 not installed — pip install opencv-python-headless")
     except Exception as e:
         logger.warning(f"[Video] Frame extraction failed: {e}")
+        
+    # Hard fallback if extraction completely fails
     return [video_bytes[:2 * 1024 * 1024]]
 
 
