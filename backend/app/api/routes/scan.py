@@ -440,29 +440,31 @@ async def create_scan(
         hf_model = "none"
         hf_ms = 0.0
 
-    # ── Ensemble Score: blend HF (60%) + NVIDIA verdict (40%) ───────────────
-    # This ensures fully AI-generated images that HF underscores but NVIDIA
-    # catches (via the visual prompt) still receive a high final threat score.
-    hf_weight = 0.60
-    nvidia_weight = 0.40
-
+    # ── Ensemble Score: blend HF + NVIDIA with adaptive weights ─────────────
     hf_component = float(hf_score_normalized)
 
-    # Convert NVIDIA verdict to a numeric signal
+    # Convert NVIDIA verdict to a numeric signal (0.0 = authentic, 1.0 = deepfake)
     if gemini_verdict == "DEEPFAKE":
         nvidia_signal = gemini_confidence / 100.0 if gemini_confidence else 0.85
     elif gemini_verdict in ("ELEVATED_RISK", "ANALYSIS_FAILED"):
-        nvidia_signal = 0.65  # Suspicious by default on analysis failure
+        nvidia_signal = 0.65
     else:  # AUTHENTIC
         nvidia_signal = 1.0 - (gemini_confidence / 100.0) if gemini_confidence else 0.15
 
-    # If NVIDIA says DEEPFAKE but HF said low — trust NVIDIA more (AI-art case)
+    # Adaptive weights:
+    # Case 1: HF high + NVIDIA says DEEPFAKE → both agree, standard 60/40
+    # Case 2: HF low + NVIDIA says DEEPFAKE → NVIDIA catches what HF missed, boost to 30/70
+    # Case 3: HF high + NVIDIA says AUTHENTIC → HF likely correct, protect with 85/15
+    # Case 4: Both say AUTHENTIC → standard 60/40
     if gemini_verdict == "DEEPFAKE" and hf_component < 0.40:
-        hf_weight, nvidia_weight = 0.30, 0.70
-        logger.info(
-            f"[ENSEMBLE] NVIDIA override: HF={hf_component:.2f} low but NVIDIA=DEEPFAKE. "
-            f"Boosting NVIDIA weight to 70%."
-        )
+        hf_weight, nvidia_weight = 0.30, 0.70   # NVIDIA override for AI-art HF missed
+        logger.info("[ENSEMBLE] Case 2: NVIDIA catches low-HF deepfake. Weights 30/70.")
+    elif gemini_verdict != "DEEPFAKE" and hf_component > 0.70:
+        hf_weight, nvidia_weight = 0.85, 0.15   # Protect high HF from AUTHENTIC override
+        logger.info("[ENSEMBLE] Case 3: HF high but NVIDIA AUTHENTIC. Trusting HF 85/15.")
+    else:
+        hf_weight, nvidia_weight = 0.60, 0.40   # Standard blend
+        logger.info(f"[ENSEMBLE] Standard 60/40. HF={hf_component:.2f} NVIDIA={gemini_verdict}")
 
     ensemble_score = (hf_component * hf_weight) + (nvidia_signal * nvidia_weight)
 
@@ -472,8 +474,9 @@ async def create_scan(
 
     logger.info(
         f"[ENSEMBLE] HF={hf_component:.3f}*{hf_weight} + "
-        f"NVIDIA={nvidia_signal:.3f}*{nvidia_weight} = {threat_score_float:.4f}"
+        f"NVIDIA_signal={nvidia_signal:.3f}*{nvidia_weight} = {threat_score_float:.4f}"
     )
+
 
     result_details = {
         # ── Tier metadata ─────────────────────────────────────────────────
