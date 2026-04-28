@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/badge/Platform-Flutter%20%F0%9F%8C%99-02569B?style=for-the-badge&logo=flutter" alt="Flutter">
   <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/AI-Hugging%20Face-orange?style=for-the-badge&logo=huggingface" alt="Hugging Face">
-  <img src="https://img.shields.io/badge/AI-NVIDIA%20NIM-76B900?style=for-the-badge" alt="NVIDIA NIM">
+  <img src="https://img.shields.io/badge/AI-Google%20Gemini-4285F4?style=for-the-badge&logo=google" alt="Google Gemini">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
 </p>
 
@@ -11,7 +11,7 @@
 
 <p align="center">
   <strong>Zero-Trust AI-Powered Platform to Detect Deepfakes in Images, Video & Audio</strong><br>
-  Built with Flutter • FastAPI • Firebase • Hugging Face • NVIDIA NIM
+  Built with Flutter • FastAPI • Firebase • Hugging Face • Google Gemini
 </p>
 
 ---
@@ -24,26 +24,40 @@ Deepfakes are weaponized for **fraud, misinformation, and identity theft**. Trad
 - ⚡ **Real-time detection** (< 10s for images, < 30s for audio)
 - 🔒 **Zero-Trust architecture** (every image gets Tier-2 forensic analysis)
 - 💰 **Cost-optimized** (Tier-1 pre-screen filters 70%+ of traffic)
-- 🌐 **Cross-platform** (iOS, Android, Web, Desktop — single codebase)
+- 🌐 **Cross-platform** (iOS, Android, Web, Desk## 🏗️ Architecture
 
----
-
-## 🏗️ Architecture
-
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Flutter Client                            │
 │   (iOS • Android • Web • Desktop)                              │
 └─────────────────────┬───────────────────────────────────────┘
-                      │ Firebase Auth (JWT)
+                      │ Firebase Auth (JWT) & Encrypted Payload
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   FastAPI Backend                             │
 │  ┌─────────────────────────────────────────────────────────┐  │
-│  │ Tier‑1: Hugging Face (prithivMLmods/Deepfake-Detection)  │  │
-│  │   → Fast pre-screen, ~2s latency, cheap                 │  │
+│  │ Tier‑1: Hugging Face (Deepfake-Detection Models)        │  │
+│  │   → High-speed initial screening & artifact detection   │  │
 │  └─────────────────────────────────────────────────────────┘  │
 │  ┌─────────────────────────────────────────────────────────┐  │
+│  │ Tier‑2: Google Gemini Multimodal (Gemini 1.5 Pro)       │  │
+│  │   → Deep contextual forensics & semantic reasoning      │  │
+│  │   → Zero-trust override: Analyzes every media payload   │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ Firebase Firestore (Encrypted Audit Logs & Telemetry)   │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ✨ Key Features
+
+| Feature | Description |
+|--------|-------------|
+| **Two-Tier AI Pipeline** | Tier-1 = lightning-fast Hugging Face screening, Tier-2 = Google Gemini forensic reasoning |
+| **Zero-Trust Override** | Every payload (regardless of Tier-1 score) undergoes Tier-2 Gemini contextual analysis |────┐  │
 │  │ Tier‑2: NVIDIA NIM (llama-3.2-90b-vision-instruct)      │  │
 │  │   → Deep visual forensics, zero-trust override          │  │
 │  │   → Runs on EVERY image regardless of Tier‑1 score    │  │
@@ -98,7 +112,7 @@ cd deepfake-auth-hack2skill
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_CREDENTIALS_PATH=your-project-id-firebase-adminsdk-xxx.json
 HUGGINGFACE_API_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-NVIDIA_API_KEY=nvapi-xxxxxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 DEBUG=true
 ```
 
@@ -177,32 +191,32 @@ curl -X POST http://localhost:8000/api/scan \
 
 | Criterion | Nexus Gateway Excels |
 |-----------|---------------------|
-| **Technical Depth** | Two-tier AI, zero-trust override, magic-byte inspection, async pipeline |
-| **Innovation** | Tier-2 forced on EVERY image — unlike competitors who skip it |
-| **Scalability** | Stateless FastAPI, horizontal scaling, Redis caching-ready |
-| **Social Impact** | Directly stops deepfake fraud, voice phishing, misinformation |
-| **Code Quality** | Typed Pydantic, async/await, linted Flutter, test coverage |
+| **Technical Depth** | Two-tier AI architecture, strict Zero-Trust override, magic-byte inspection |
+| **Innovation** | Leverages Google Gemini's multimodal reasoning to catch edge cases other models miss |
+| **Scalability** | Stateless FastAPI microservices, horizontal scaling, asynchronous background processing |
+| **Social Impact** | Directly combats deepfake fraud, voice phishing, and AI-generated misinformation |
+| **Code Quality** | Typed Pydantic schemas, robust error handling, premium dark-mode UI/UX |
 
 ---
 
 ## 🌍 Real-World Use Cases
 
-- **Banks**: Verify customer identity photos/videos before account creation
-- **Social Platforms**: Auto-scan uploads before posting
-- **HR/Recruiting**: Validate candidate video interviews
-- **Journalism**: Verify authenticity of viral media
-- **Law Enforcement**: Forensic deepfake analysis
+- **Financial Institutions**: Verify customer identity photos/videos before account creation
+- **Social Platforms**: Auto-scan uploads to flag synthetic media before it goes viral
+- **HR/Recruiting**: Validate candidate video interviews and portfolios
+- **Journalism**: Verify the authenticity of viral media in the newsroom
+- **Law Enforcement**: Perform cryptographic and contextual deepfake analysis
 
 ---
 
 ## 📦 Deployment
 
 ### Production Checklist
-- [ ] Enable Firebase Authentication (restrict to your domain)
-- [ ] Set Firestore security rules (no public access)
-- [ ] Add `NVIDIA_API_KEY` to production secrets
-- [ ] Configure TLS/SSL (Traefik or Nginx)
-- [ ] Set up Prometheus alerts for `/ready`
+- [ ] Enable Firebase Authentication (restrict to approved domains)
+- [ ] Set Firestore security rules (deny public read/write)
+- [ ] Add `GEMINI_API_KEY` to production environment secrets
+- [ ] Configure TLS/SSL certificates
+- [ ] Set up Prometheus telemetry alerts for `/ready` endpoint
 
 ### Docker Production
 ```bash
@@ -230,11 +244,11 @@ docker run -d -p 8000:8000 --env-file backend/.env nexus-gateway-backend
 
 ## 🙏 Acknowledgments
 
-- [Hugging Face](https://huggingface.co) — Inference API
-- [NVIDIA NIM](https://www.nvidia.com/en-us/ai/) — Vision language models
-- [Flutter](https://flutter.dev) — Cross-platform UI
-- [FastAPI](https://fastapi.tiangular.com) — Python web framework
-- [Firebase](https://firebase.google.com) — Auth & Firestore
+- [Google Gemini](https://deepmind.google/technologies/gemini/) — Multimodal semantic reasoning engine
+- [Hugging Face](https://huggingface.co) — High-speed inference pipelines
+- [Flutter](https://flutter.dev) — High-performance cross-platform UI
+- [FastAPI](https://fastapi.tiangular.com) — Modern Python web framework
+- [Firebase](https://firebase.google.com) — Secure Auth & Firestore telemetry
 
 ---
 
