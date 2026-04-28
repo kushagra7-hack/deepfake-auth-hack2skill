@@ -17,6 +17,7 @@ const _kNeutral400 = Color(0xFFA1A1AA);
 const _kNeutral500 = Color(0xFF71717A);
 const _kRed        = Color(0xFFFFFFFF);  // Use White for errors too (or White with opacity)
 const _kRose       = Color(0xFFFFFFFF);
+const trustAccent  = Color(0xFF4F46E5); // Deep Indigo
 // Legacy aliases
 const _kBlack      = _kBg;
 const _kBlue       = _kPrimary;
@@ -39,6 +40,8 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoading = false;
   bool _showPassword = false;
   bool _isRegisterMode = false; // toggles between login / create account
+  bool _isPrimaryHovered = false;
+  bool _isGoogleHovered = false;
 
   @override
   void dispose() {
@@ -290,8 +293,9 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -664,28 +668,32 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildPrimaryButton() {
-    return SizedBox(
-      height: 56,
-      child: GestureDetector(
-        onTap: _isLoading
-            ? null
-            : (_isRegisterMode ? _handleRegister : _handleLogin),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: _kBlack,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _kPrimary.withOpacity(0.5)),
-            boxShadow: _isLoading
-                ? null
-                : [
-                    BoxShadow(
-                      color: _kPrimary.withOpacity(0.1),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-          ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isPrimaryHovered = true),
+      onExit: (_) => setState(() => _isPrimaryHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: SizedBox(
+        height: 56,
+        child: GestureDetector(
+          onTap: _isLoading
+              ? null
+              : (_isRegisterMode ? _handleRegister : _handleLogin),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: _isPrimaryHovered ? trustAccent.withOpacity(0.1) : _kBlack,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: trustAccent.withOpacity(0.8), width: 1),
+              boxShadow: _isLoading
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: trustAccent.withOpacity(0.1),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+            ),
           child: Center(
             child: _isLoading
                 ? const SizedBox(
@@ -711,6 +719,7 @@ class _LoginScreenState extends State<LoginScreen>
                           size: 17, color: Colors.white),
                     ],
                   ),
+          ),
           ),
         ),
       ),
@@ -743,18 +752,21 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildGoogleButton() {
-    return SizedBox(
-      height: 56,
-      child: OutlinedButton(
-        onPressed: _isLoading ? null : _handleGoogleSignIn,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: _kSurface,
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: _kBorderCol),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isGoogleHovered = true),
+      onExit: (_) => setState(() => _isGoogleHovered = false),
+      child: SizedBox(
+        height: 56,
+        child: OutlinedButton(
+          onPressed: _isLoading ? null : _handleGoogleSignIn,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: _kSurface,
+            foregroundColor: Colors.white,
+            side: BorderSide(color: _isGoogleHovered ? trustAccent.withOpacity(0.4) : _kBorderCol),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-        ),
         child: _isLoading
             ? SizedBox(
                 width: 20,
@@ -778,6 +790,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ],
               ),
+        ),
       ),
     );
   }

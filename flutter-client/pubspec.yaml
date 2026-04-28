@@ -44,6 +44,8 @@ dependencies:
   google_sign_in: ^6.2.2
   url_launcher: ^6.2.5
   visibility_detector: ^0.4.0
+  toastification: ^3.2.0
+  flutter_spinkit: ^5.2.2
 
 dev_dependencies:
   flutter_test:

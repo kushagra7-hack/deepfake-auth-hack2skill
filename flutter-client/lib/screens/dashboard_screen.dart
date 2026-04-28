@@ -4,6 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:toastification/toastification.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import '../widgets/trust_button.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 
@@ -98,13 +102,33 @@ class _DashboardScreenState extends State<DashboardScreen>
         _currentResult = res;
         _history.insert(0, res);
       });
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.flat,
+          title: Text('Analysis Complete'),
+          description: Text('Threat metrics updated.'),
+          alignment: Alignment.bottomRight,
+          autoCloseDuration: const Duration(seconds: 4),
+          primaryColor: Colors.cyan,
+          backgroundColor: Colors.black87,
+          foregroundColor: Colors.white,
+        );
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.red.withOpacity(0.9),
-            content: Text('SECURITY SCAN INTERRUPTED: $e', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.flat,
+          title: Text('Scan Failed'),
+          description: Text('Gateway connection lost or payload corrupted.'),
+          alignment: Alignment.bottomRight,
+          autoCloseDuration: const Duration(seconds: 4),
+          primaryColor: Colors.redAccent,
+          backgroundColor: Colors.black87,
+          foregroundColor: Colors.white,
         );
       }
     } finally {
@@ -271,21 +295,23 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return Container(
-                  width: 120 * _pulseAnimation.value,
-                  height: 120 * _pulseAnimation.value,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: kWhite.withOpacity(0.2), width: 1),
+            SizedBox(
+              width: 100,
+              height: 100,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SpinKitPulse(
+                    color: const Color(0xFF4F46E5).withOpacity(0.4),
+                    size: 100.0,
                   ),
-                  child: Center(
-                    child: Icon(Icons.radar, color: kWhite, size: 40),
+                  const Icon(
+                    Icons.fingerprint,
+                    color: Colors.white70,
+                    size: 40.0,
                   ),
-                );
-              },
+                ],
+              ),
             ),
             const SizedBox(height: 32),
             Text(
@@ -380,11 +406,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Actions
           SizedBox(
             width: 250,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Wrap(
+              spacing: 16.0,
+              runSpacing: 16.0,
+              alignment: WrapAlignment.end,
               children: [
                 _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
-                const SizedBox(width: 12),
                 _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
               ],
             ),
@@ -426,11 +453,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               
               // Actions
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                spacing: 16.0,
+                runSpacing: 16.0,
+                alignment: WrapAlignment.end,
                 children: [
                   _buildIconButton(Icons.notifications_outlined, () => setState(() => _navIndex = 3)),
-                  const SizedBox(width: 12),
                   _buildIconButton(Icons.person_outline, () => setState(() => _navIndex = 4)),
                 ],
               ),
@@ -574,11 +602,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           else
             const SizedBox(height: 42),
           const SizedBox(height: 16),
-          _buildPrimaryButton(
+          TrustButton(
             label: 'SCAN PAYLOAD',
             icon: Icons.radar,
             onPressed: _startScan,
             isLoading: _isScanning,
+            fullWidth: true,
           ),
         ],
       ),
@@ -652,7 +681,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildScanResultMain() {
     final score = _currentResult?.threatScore ?? 0.0;
-    final verdict = _currentResult?.geminiVerdict ?? 'AWAITING SCAN';
+    final verdict = _isScanning ? 'AWAITING NEURAL CONSENSUS' : (_currentResult?.geminiVerdict ?? 'AWAITING SCAN');
     
     return GlassCard(
       title: 'SCAN RESULT',
@@ -690,35 +719,50 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: CustomPaint(
                   painter: _CircularScorePainter(score / 100),
                   child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          score.toStringAsFixed(1),
-                          style: GoogleFonts.outfit(
-                            color: kWhite,
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
+                    child: _isScanning 
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const CupertinoActivityIndicator(color: kWhite, radius: 16),
+                              const SizedBox(height: 16),
+                              AnimatedBuilder(
+                                animation: _pulseAnimation,
+                                builder: (context, child) => Opacity(
+                                  opacity: _pulseAnimation.value > 1.1 ? 1.0 : 0.5,
+                                  child: Text('ANALYZING...', style: GoogleFonts.outfit(color: kWhite, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                score.toStringAsFixed(1),
+                                style: GoogleFonts.outfit(
+                                  color: kWhite,
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '/100',
+                                style: GoogleFonts.outfit(
+                                  color: kGray400,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'THREAT SCORE',
+                                style: GoogleFonts.outfit(
+                                  color: kGray600,
+                                  fontSize: 10,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        Text(
-                          '/100',
-                          style: GoogleFonts.outfit(
-                            color: kGray400,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'THREAT SCORE',
-                          style: GoogleFonts.outfit(
-                            color: kGray600,
-                            fontSize: 10,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
@@ -731,14 +775,22 @@ class _DashboardScreenState extends State<DashboardScreen>
               border: Border.all(color: kWhite.withOpacity(0.2)),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              verdict.toUpperCase(),
-              style: GoogleFonts.outfit(
-                color: kWhite,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
+            child: AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _isScanning ? (_pulseAnimation.value > 1.1 ? 1.0 : 0.5) : 1.0,
+                  child: Text(
+                    verdict.toUpperCase(),
+                    style: GoogleFonts.outfit(
+                      color: kWhite,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(height: 8),
@@ -962,53 +1014,69 @@ class _DashboardScreenState extends State<DashboardScreen>
     return GlassCard(
       title: 'ANALYSIS LOG',
       isExpanded: false,
-      child: Column(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Container(
-                  width: math.max(constraints.maxWidth, 800.0),
-                  decoration: BoxDecoration(
-                    color: kWhite.withOpacity(0.02),
-                    border: Border.all(color: kGlassBorder),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildTableHeader(),
-                      const Divider(color: kGlassBorder, height: 1),
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _history.length.clamp(0, 5),
-                        separatorBuilder: (context, index) => const Divider(color: kGlassBorder, height: 1),
-                        itemBuilder: (context, index) {
-                          final scan = _history[index];
-                          return _buildTableRow(scan);
-                        },
+      child: _history.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.analytics_outlined, color: Colors.white24, size: 48),
+                    const SizedBox(height: 16),
+                    const Text('NO TELEMETRY FOUND', style: TextStyle(color: Colors.white54, fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    const Text('Upload a payload to begin logging forensic data.', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  ],
+                ),
+              ),
+            )
+          : Column(
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Container(
+                        width: math.max(constraints.maxWidth, 800.0),
+                        decoration: BoxDecoration(
+                          color: kWhite.withOpacity(0.02),
+                          border: Border.all(color: kGlassBorder),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildTableHeader(),
+                            const Divider(color: kGlassBorder, height: 1),
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _history.length.clamp(0, 5),
+                              separatorBuilder: (context, index) => const Divider(color: kGlassBorder, height: 1),
+                              itemBuilder: (context, index) {
+                                final scan = _history[index];
+                                return _buildTableRow(scan);
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    'VIEW ALL SCANS',
+                    style: GoogleFonts.outfit(
+                      color: kGray400,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              'VIEW ALL SCANS',
-              style: GoogleFonts.outfit(
-                color: kGray400,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 

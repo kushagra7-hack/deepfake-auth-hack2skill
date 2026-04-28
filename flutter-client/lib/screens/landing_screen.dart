@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/starfield_background.dart';
 import '../widgets/constellation_background.dart';
+import '../widgets/trust_button.dart';
 
 // --- Design Tokens ---
 const _kBg = Color(0xFF000000);
@@ -94,7 +95,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 child: Column(
                   children: [
                     HeroSection(mousePosition: _mousePosition),
-                    const SizedBox(height: 120),
+                    const SizedBox(height: 60),
                     InteractiveExplainerSection(key: _howItWorksKey, mousePosition: _mousePosition),
                     const SizedBox(height: 120),
                     FeatureGridsSection(key: _productKey, mousePosition: _mousePosition),
@@ -278,12 +279,13 @@ class HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
-    final isDesktop = width > 900;
+    final isTabletOrMobile = screenWidth < 950; // Breakpoint for tablet
+    final isDesktop = !isTabletOrMobile;
 
     // 3D Antigravity Parallax Calculations
-    final centerX = width / 2;
+    final centerX = screenWidth / 2;
     final centerY = height / 2;
     
     // Calculate rotation angles (pitch and yaw)
@@ -363,39 +365,15 @@ class HeroSection extends StatelessWidget {
         ),
         const SizedBox(height: 48),
         // CTA
-        Row(
+        Wrap(
+          spacing: 16.0,
+          runSpacing: 16.0,
+          alignment: WrapAlignment.start,
           children: [
-            AnimatedScaleHoverWrapper(
-              child: GestureDetector(
-                onTap: () => Navigator.pushReplacementNamed(context, '/login'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withAlpha(80)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.white.withAlpha(20), blurRadius: 40, offset: const Offset(0, 10))
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'ENTER DASHBOARD',
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          letterSpacing: 2.0,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
-                    ],
-                  ),
-                ),
-              ),
+            TrustButton(
+              label: 'ENTER DASHBOARD',
+              isForwardAction: true,
+              onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
             ),
           ],
         ),
@@ -403,11 +381,8 @@ class HeroSection extends StatelessWidget {
       ),
     );
 
-    final rightContent = SizedBox(
-      width: isDesktop ? 700 : double.infinity,
-      child: Center(
-        child: _CinematicFeatureCard(mousePosition: mousePosition),
-      ),
+    final rightContent = Center(
+      child: _CinematicFeatureCard(mousePosition: mousePosition),
     );
 
     return Container(
@@ -415,17 +390,21 @@ class HeroSection extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: isDesktop ? 80 : 24, vertical: isDesktop ? 100 : 60),
       child: isDesktop 
           ? Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(child: leftContent),
+                Expanded(flex: 10, child: leftContent),
                 const SizedBox(width: 40),
-                rightContent,
+                Expanded(flex: 12, child: rightContent),
               ],
             )
           : Column(
               children: [
                 leftContent,
                 const SizedBox(height: 60),
-                rightContent,
+                SizedBox(
+                  width: double.infinity,
+                  child: rightContent,
+                ),
               ],
             ),
     );
@@ -898,7 +877,7 @@ class _InteractiveExplainerNodeState extends State<InteractiveExplainerNode>
                 duration: const Duration(milliseconds: 350),
                 curve: Curves.easeOutQuart,
                 width: _isExpanded ? 300 : 64,
-                height: _isExpanded ? 170 : 64,
+                height: _isExpanded ? 240 : 64,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_isExpanded ? 16 : 32),
                   color: _kSurface,
@@ -1429,19 +1408,19 @@ class ThreeColumnFeatureStrip extends StatelessWidget {
     final isDesktop = MediaQuery.of(context).size.width > 900;
     final features = [
       _FeatureItem(
-        icon: Icons.verified_user_outlined,
-        title: 'Reliable Protection',
-        desc: 'Enterprise-grade AI inference pipelines that never miss a manipulated payload, backed by multi-model consensus.',
+        icon: Icons.radar,
+        title: 'Multimodal Analysis',
+        desc: 'Simultaneous scanning of spatial anomalies and frequency artifacts across both audio and visual domains using synchronized transformer models.',
       ),
       _FeatureItem(
-        icon: Icons.rocket_launch_outlined,
-        title: 'Easy to Set Up',
-        desc: 'One-click deployment with Firebase integration. Upload, scan, verify — operational in under 60 seconds.',
+        icon: Icons.lock_outline,
+        title: 'Zero-Trust Pipeline',
+        desc: 'End-to-end payload encryption combined with strict Firebase authentication, ensuring your forensic data remains totally sandboxed.',
       ),
       _FeatureItem(
-        icon: Icons.shield_outlined,
-        title: 'Virus Protection',
-        desc: 'All ingested media is sandboxed and scanned for embedded malware before AI analysis begins.',
+        icon: Icons.bolt,
+        title: 'Sub-Second Latency',
+        desc: 'Highly optimized inference routing on L40S accelerators ensures that you receive verifiable threat intelligence in real-time.',
       ),
     ];
 
@@ -1802,13 +1781,18 @@ class _PulsingCTAButtonState extends State<_PulsingCTAButton>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      widget.label,
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 20,
-                        letterSpacing: 1.8,
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          widget.label,
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
