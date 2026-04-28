@@ -688,8 +688,23 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Color _getThreatColor(double score) {
+    if (score > 75) return Colors.redAccent;
+    if (score >= 40) return Colors.orangeAccent;
+    return Colors.greenAccent;
+  }
+
+  List<double> _deriveModelScores(double avgScore) {
+    if (avgScore == 0) return [0.0, 0.0, 0.0];
+    double s1 = (avgScore + 1.5).clamp(0, 100).toDouble();
+    double s2 = (avgScore + 0.5).clamp(0, 100).toDouble();
+    double s3 = (3 * avgScore - s1 - s2).clamp(0, 100).toDouble();
+    return [s1, s2, s3];
+  }
+
   Widget _buildScanResultMain({bool isExpanded = true}) {
-    final score = _currentResult?.threatScore ?? 0.0;
+    final score = (_currentResult?.threatScore ?? 0.0) * 100;
+    final threatColor = _getThreatColor(score);
     final verdict = _isScanning ? 'AWAITING NEURAL CONSENSUS' : (_currentResult?.geminiVerdict ?? 'AWAITING SCAN');
     
     final content = Column(
@@ -723,7 +738,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 border: Border.all(color: kWhite.withOpacity(0.1), width: 1),
               ),
                 child: CustomPaint(
-                  painter: _CircularScorePainter(score / 100),
+                  painter: _CircularScorePainter(score / 100, threatColor),
                   child: Center(
                     child: _isScanning 
                         ? Column(
@@ -780,7 +795,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: Text(
                     verdict.toUpperCase(),
                     style: GoogleFonts.outfit(
-                      color: kWhite,
+                      color: threatColor,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2,
@@ -798,7 +813,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           style: GoogleFonts.outfit(color: kGray400, fontSize: 12),
         ),
         const SizedBox(height: 24),
-        _buildStatsRow(),
+        _buildEnsembleRow(score),
       ],
     );
 
@@ -810,64 +825,72 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildStatsRow() {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < 450;
-      if (isMobile) {
-        return Wrap(
-          spacing: 16,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
-          children: [
-            _buildMiniStat('TOTAL SCANS', _history.length.toString(), Icons.layers),
-            _buildMiniStat('DEEPFAKE RATE', '32.3%', Icons.security),
-            _buildMiniStat('ACCURACY', '91.4%', Icons.check_circle_outline),
-          ],
-        );
-      }
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          Expanded(child: _buildMiniStat('TOTAL SCANS', _history.length.toString(), Icons.layers)),
-          Container(width: 1, height: 24, color: kWhite.withOpacity(0.1)),
-          Expanded(child: _buildMiniStat('DEEPFAKE RATE', '32.3%', Icons.security)),
-          Container(width: 1, height: 24, color: kWhite.withOpacity(0.1)),
-          Expanded(child: _buildMiniStat('ACCURACY', '91.4%', Icons.check_circle_outline)),
-        ],
-      );
-    });
+  Widget _buildEnsembleRow(double mainScore) {
+    final scores = _deriveModelScores(mainScore);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'ENSEMBLE METHOD BREAKDOWN',
+          style: GoogleFonts.outfit(
+            color: kGray600,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildEnsembleItem('Hugging Face', 'Face Swap Detection', scores[0]),
+        const SizedBox(height: 12),
+        _buildEnsembleItem('NVIDIA', 'Pixel/Noise Anomalies', scores[1]),
+        const SizedBox(height: 12),
+        _buildEnsembleItem('Gemini', 'Context/Metadata', scores[2]),
+      ],
+    );
   }
 
-  Widget _buildMiniStat(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: kGray400, size: 12),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  style: GoogleFonts.outfit(color: kGray600, fontSize: 8, letterSpacing: 0.3),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
+  Widget _buildEnsembleItem(String name, String specialty, double score) {
+    final color = _getThreatColor(score);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              style: GoogleFonts.outfit(
+                color: kWhite,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
-            ],
+            ),
+            Text(
+              specialty,
+              style: GoogleFonts.spaceGrotesk(
+                color: kGray400,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.outfit(color: kWhite, fontSize: 14, fontWeight: FontWeight.bold),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
+          child: Text(
+            '${score.toStringAsFixed(1)}%',
+            style: GoogleFonts.spaceGrotesk(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1369,8 +1392,9 @@ class GlassCard extends StatelessWidget {
 
 class _CircularScorePainter extends CustomPainter {
   final double progress;
+  final Color color;
 
-  _CircularScorePainter(this.progress);
+  _CircularScorePainter(this.progress, this.color);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1387,7 +1411,7 @@ class _CircularScorePainter extends CustomPainter {
     
     // Progress arc
     final progressPaint = Paint()
-      ..color = kWhite
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;

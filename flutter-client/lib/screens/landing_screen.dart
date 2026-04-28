@@ -16,7 +16,7 @@ const _kSurface = Color(0x1AFFFFFF); // 10% white
 const _kBorder = Color(0x33FFFFFF);  // 20% white
 
 // Legacy mappings for backwards compatibility
-const _kBlue = _kPrimary;
+const _kBlue = Color(0xFF00E5FF); // Cyber Blue accent
 const _kPurple = _kSecondary;
 const _kZinc400 = Color(0xFFA1A1AA);
 
@@ -1823,10 +1823,10 @@ class _PulsingCTAButtonState extends State<_PulsingCTAButton>
                 decoration: BoxDecoration(
                   color: Colors.black,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withAlpha(80)),
+                  border: Border.all(color: _kBlue.withAlpha(80)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.white.withAlpha(_isHovered ? 80 : 40),
+                      color: _kBlue.withAlpha(_isHovered ? 80 : 40),
                       blurRadius: _isHovered ? 50 : 30,
                       spreadRadius: _isHovered ? 4 : 0,
                       offset: const Offset(0, 10),
