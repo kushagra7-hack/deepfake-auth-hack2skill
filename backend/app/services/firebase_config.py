@@ -26,14 +26,29 @@ def initialize_firebase() -> None:
         return
 
     import os
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.FIREBASE_CREDENTIALS_PATH
-    cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
-    _firebase_app = firebase_admin.initialize_app(cred, {
-        "projectId": settings.FIREBASE_PROJECT_ID,
-    })
-    logger.info(
-        f"[Firebase] Admin SDK initialized — project: {settings.FIREBASE_PROJECT_ID}"
-    )
+    import json
+    
+    firebase_json_string = os.getenv("FIREBASE_CREDENTIALS_JSON")
+    
+    if firebase_json_string:
+        firebase_dict = json.loads(firebase_json_string)
+        cred = credentials.Certificate(firebase_dict)
+        _firebase_app = firebase_admin.initialize_app(cred, {
+            "projectId": settings.FIREBASE_PROJECT_ID,
+        })
+        logger.info(
+            f"[Firebase] Admin SDK initialized via JSON string — project: {settings.FIREBASE_PROJECT_ID}"
+        )
+    else:
+        logger.warning("WARNING: Firebase credentials missing from env var. Falling back to local file.")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.FIREBASE_CREDENTIALS_PATH
+        cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+        _firebase_app = firebase_admin.initialize_app(cred, {
+            "projectId": settings.FIREBASE_PROJECT_ID,
+        })
+        logger.info(
+            f"[Firebase] Admin SDK initialized via file — project: {settings.FIREBASE_PROJECT_ID}"
+        )
 
 
 def get_firestore():
