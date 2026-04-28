@@ -69,19 +69,25 @@ app = FastAPI(
 _ALLOWED_ORIGINS = [
     "https://nexus-gateway-cca4c.web.app",
     "https://nexus-gateway-cca4c.firebaseapp.com",
+    "https://nexus-gateway-cca4c--*.web.app",  # Firebase preview channels
     "http://localhost:3000",
     "http://localhost:8080",
     "http://localhost:5000",
+    "http://localhost:52022",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8080",
+    "http://127.0.0.1:52022",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
-    allow_credentials=True,  # Safe because we use explicit origins, not [*]
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    # CRITICAL: Cannot use '*' with allow_credentials=True — browsers block the preflight.
+    # Must enumerate the exact headers the Flutter client sends.
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin",
+                   "X-Requested-With", "X-Request-ID"],
     max_age=600,
 )
 
