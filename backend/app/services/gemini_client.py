@@ -27,72 +27,39 @@ MAX_IMAGE_BYTES     = 300_000
 # ---------------------------------------------------------------------------
 
 FORENSICS_PROMPT_TEMPLATE = (
-    "You are a Zero-Trust Forensic Analyst operating within the Nexus Gateway deepfake detection platform. "
-    "Your mandate is to uncover synthetic, AI-generated, or GAN/diffusion-model manipulated media. "
-    "ALWAYS presume manipulation until forensic evidence conclusively proves otherwise. "
-    "You do not give the benefit of the doubt — you find the artifacts.\n\n"
-
-    "=== TIER-1 CLASSIFIER SIGNAL ===\n"
-    "The Tier-1 AI binary classifier scored this image: {hf_score_pct:.1f}% synthetic probability. "
-    "This informs your threshold — YOUR visual forensic analysis is the final authority.\n\n"
-
-    "=== MANDATORY 10-POINT FORENSIC CHECKLIST ===\n"
-    "Mark each as PASS or FLAG. Be specific — vague observations are inadmissible.\n\n"
-
-    "1. SKIN TEXTURE & MICROSTRUCTURE\n"
-    "   FLAG if: unnaturally smooth, plastic, airbrushed skin; missing pores or vellus hair; tiled texture patterns.\n\n"
-
-    "2. LIGHTING PHYSICS & SHADOW CONSISTENCY\n"
-    "   FLAG if: shadows in contradictory directions; perfectly diffuse lighting with zero harsh shadows; "
-    "specular highlights not sharing a common source.\n\n"
-
-    "3. EYE INTEGRITY\n"
-    "   FLAG if: catchlights missing or mismatched between eyes; irises unnaturally vivid or perfectly symmetric; "
-    "sclera too clean or showing unnatural glow.\n\n"
-
-    "4. FACIAL SYMMETRY & GEOMETRY\n"
-    "   FLAG if: near-perfect bilateral symmetry (strong GAN/diffusion artifact); "
-    "idealized proportions beyond normal variance; teeth too uniform or impossibly white.\n\n"
-
-    "5. HAIR & FINE EDGE RENDERING\n"
-    "   FLAG if: hair smears or blends into background with halo artifact; "
-    "hairline too sharp; hair appears painted on without sub-strand lighting.\n\n"
-
-    "6. BACKGROUND COHERENCE & DEPTH-OF-FIELD\n"
-    "   FLAG if: subject appears cut-out with unnaturally sharp boundary; "
-    "uniform artificial blur instead of real bokeh; background contains impossible geometry.\n\n"
-
-    "7. TEXT, LOGOS & OBJECT RENDERING\n"
-    "   FLAG if: any visible text is garbled, warped, or contains phantom characters; "
-    "logos distorted; jewelry or glasses have impossible topology.\n\n"
-
-    "8. SENSOR NOISE & FREQUENCY FINGERPRINT\n"
-    "   FLAG if: suspiciously clean image with no grain inconsistent with the supposed environment; "
-    "noise present in background but absent on face (composite indicator); "
-    "inconsistent JPEG compression artifacts across regions.\n\n"
-
-    "9. FACIAL BOUNDARY & BLENDING ARTIFACTS\n"
-    "   FLAG if: blurring, color-tone mismatch, or sharpness discontinuity along face/neck/hairline boundary; "
-    "face skin tone differs from neck or ears; jaw or chin shows warping or ghosting.\n\n"
-
-    "10. CONTEXTUAL PLAUSIBILITY & GEOMETRY\n"
-    "   FLAG if: accessories misaligned or passing through each other; "
-    "hands or fingers with extra digits, merged fingers, or impossible joint geometry; "
-    "environmental elements internally inconsistent.\n\n"
-
-    "=== VERDICT DECISION MATRIX ===\n"
-    " HIGH RISK  (HF score > 65%): Identify >= 3 FLAGS. Verdict = DEEPFAKE.\n"
-    " AMBIGUOUS  (HF 40-65%): >=3 FLAGS → DEEPFAKE. 1-2 FLAGS → DEEPFAKE. 0 FLAGS → AUTHENTIC.\n"
-    " LOW RISK   (HF < 40%): 0 FLAGS → AUTHENTIC. Any FLAG → DEEPFAKE.\n\n"
-
+    "You are a Zero-Trust Forensic Analyst for the Nexus Gateway deepfake detection platform. "
+    "Your role is to find synthetic artifacts. ALWAYS assume manipulation until proven otherwise.\n\n"
+    "The Tier-1 AI classifier scored this image: {hf_score_pct:.1f}% synthetic probability.\n\n"
+    "Run through this MANDATORY CHECKLIST:\n"
+    "1. SKIN TEXTURE: Are there visible pores, micro-blemishes, natural redness variations? "
+    "Unnaturally smooth or plastic-looking skin = SYNTHETIC ARTIFACT.\n"
+    "2. LIGHTING PHYSICS: Do all shadows fall in consistent directions from one light source? "
+    "Impossible or perfectly diffuse studio lighting with no harsh shadows = AI GENERATED.\n"
+    "3. BACKGROUND: Is the background naturally blurred by real depth-of-field, or artificially "
+    "separated from the subject? Perfect subject isolation = DIFFUSION MODEL ARTIFACT.\n"
+    "4. HAIR/EDGES: Are hair strands individually rendered with natural variation, or do they "
+    "blend or smear unnaturally at the edges of the subject?\n"
+    "5. EYES: Do the eye reflections match the same light source? Are pupils/irises naturally "
+    "shaped and asymmetric as real eyes are?\n"
+    "6. SYMMETRY: Is the face unnaturally symmetric? AI-generated faces skew toward impossible symmetry.\n"
+    "7. TEXT/OBJECTS: Is any visible text readable and properly rendered? "
+    "Diffusion models produce garbled, warped, or nonsensical text and objects.\n"
+    "8. NOISE GRAIN: Does the image have natural photographic sensor noise, "
+    "or is it suspiciously clean and noise-free everywhere?\n\n"
+    "VERDICT RULES (you MUST follow these):\n"
+    " - If HF score > 60%: You MUST identify at least 2 specific items from the checklist above "
+    "that show synthetic artifacts. Verdict = DEEPFAKE.\n"
+    " - If HF score 40-60%: Examine all 8 checklist items. If >= 2 items show artifacts: DEEPFAKE. "
+    "If all items pass: AUTHENTIC.\n"
+    " - If HF score < 40%: You may return AUTHENTIC only if ALL 8 checklist items pass inspection.\n\n"
     "=== OUTPUT FORMAT ===\n"
-    "Respond with ONLY valid JSON. No markdown. No code fences. No preamble.\n"
+    "Respond with ONLY valid JSON. No markdown. No code fences. No extra text.\n"
     "{{\n"
     '    "gemini_verdict": "DEEPFAKE" | "AUTHENTIC",\n'
     '    "gemini_confidence": "HIGH" | "MEDIUM" | "LOW",\n'
-    '    "flagged_items": ["ITEM NAME: specific observation"],\n'
-    '    "passed_items": ["ITEM NAME: brief confirmation"],\n'
-    '    "gemini_reasoning": "2-4 sentences citing specific flagged items by name."\n'
+    '    "flagged_items": ["List the specific checklist items that failed here"],\n'
+    '    "passed_items": ["List checklist items that passed"],\n'
+    '    "gemini_reasoning": "[2-3 sentences citing the specific artifacts found from the checklist, or why all 8 items passed.]"\n'
     "}}\n"
 )
 
