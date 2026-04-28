@@ -3,6 +3,7 @@ Scan API routes for Deepfake Authentication Gateway.
 Provides the main POST /scan endpoint for media analysis.
 """
 
+import asyncio
 import logging
 from decimal import Decimal
 from typing import Annotated, Any
@@ -52,6 +53,9 @@ from app.services.firestore_db import (
     log_scan,
     update_scan_status,
 )
+
+from app.services.gemini_client import run_gemini_analysis
+from app.services.real_gemini_client import analyze_with_gemini
 
 logger = logging.getLogger(__name__)
 
@@ -321,6 +325,10 @@ async def create_scan(
     gemini_model_used = ""
     gemini_confidence = None
     gemini_tier = ""
+    # Tier-3 Google Gemini defaults (only populated for images)
+    real_gemini_verdict    = "ANALYSIS_FAILED"
+    real_gemini_reasoning  = ""
+    real_gemini_confidence = None
 
     content_type = file.content_type
 
@@ -366,32 +374,55 @@ async def create_scan(
     
         if file_info.media_type == "image":
             logger.info(
-                f"[SECURITY OVERRIDE] Bypassing Tier 1 threshold. "
-                f"Forcing Gemini visual artifact inspection on '{filename}'."
+                f"[SECURITY OVERRIDE] Running NVIDIA + Gemini in parallel on '{filename}'."
             )
             try:
-                from app.services.gemini_client import run_gemini_analysis
-                gemini_result = await run_gemini_analysis(file_bytes, hf_score_normalized)
-                gemini_verdict   = gemini_result.get("gemini_verdict", "AUTHENTIC")
-                gemini_reasoning = gemini_result.get("gemini_reasoning", "")
-                gemini_model_used   = gemini_result.get("gemini_model_used", "")
-                gemini_confidence   = gemini_result.get("gemini_confidence", None)
-                gemini_tier         = gemini_result.get("tier", "tier-2")
-                tier_used = 2
+                # ── Run NVIDIA NIM and Google Gemini Flash simultaneously ───────────
+                nvidia_task  = run_gemini_analysis(file_bytes, hf_score_normalized)
+                real_gemini_task = analyze_with_gemini(file_bytes, hf_score_normalized)
+
+                nvidia_result, real_gemini_result = await asyncio.gather(
+                    nvidia_task, real_gemini_task, return_exceptions=True
+                )
+
+                # ── NVIDIA result ─────────────────────────────────────────────────
+                if isinstance(nvidia_result, Exception):
+                    logger.warning(f"[TIER-2/NVIDIA] Failed: {nvidia_result}")
+                    nvidia_result = {"gemini_verdict": "ANALYSIS_FAILED", "gemini_reasoning": str(nvidia_result)}
+
+                gemini_verdict     = nvidia_result.get("gemini_verdict", "AUTHENTIC")
+                gemini_reasoning   = nvidia_result.get("gemini_reasoning", "")
+                gemini_model_used  = nvidia_result.get("gemini_model_used", "")
+                gemini_confidence  = nvidia_result.get("gemini_confidence", None)
+                gemini_tier        = nvidia_result.get("tier", "tier-2")
+
+                # ── Real Gemini Flash result ──────────────────────────────────
+                if isinstance(real_gemini_result, Exception):
+                    logger.warning(f"[TIER-3/GEMINI] Failed: {real_gemini_result}")
+                    real_gemini_result = {"gemini_verdict": "ANALYSIS_FAILED"}
+
+                real_gemini_verdict    = real_gemini_result.get("gemini_verdict", "AUTHENTIC")
+                real_gemini_confidence = real_gemini_result.get("gemini_confidence", None)  # 0-100
+                real_gemini_reasoning  = real_gemini_result.get("gemini_reasoning", "")
+
+                logger.info(
+                    f"[TIER-3/GEMINI] Verdict={real_gemini_verdict} "
+                    f"Confidence={real_gemini_confidence} | {real_gemini_reasoning[:80]}"
+                )
+
+                tier_used    = 3
                 status_value = ScanStatus.COMPLETED
-            except RuntimeError as gemini_err:
-                logger.warning(
-                    f"[TIER-2] Gemini unavailable ({gemini_err}). "
-                    f"Falling back to HF score only."
-                )
+
+            except Exception as err:
+                logger.warning(f"[TIER-2/3] Both AI models failed: {err}")
                 gemini_verdict = "DEEPFAKE" if hf_score_normalized >= 0.5 else "AUTHENTIC"
-                gemini_reasoning = (
-                    f"Tier 2 analysis unavailable. Verdict derived from Tier 1 score "
-                    f"({hf_score_normalized * 100:.2f}%)."
-                )
+                gemini_reasoning = f"AI models unavailable. Verdict from HF score ({hf_score_normalized*100:.1f}%)."
                 gemini_model_used = ""
                 gemini_confidence = None
                 gemini_tier = "tier-1-fallback"
+                real_gemini_verdict = "ANALYSIS_FAILED"
+                real_gemini_confidence = None
+                real_gemini_reasoning = ""
                 tier_used = 1
         else:
             # Video: keep original threshold-based logic
@@ -440,51 +471,54 @@ async def create_scan(
         hf_model = "none"
         hf_ms = 0.0
 
-    # ── NVIDIA-Primary Ensemble Scoring ──────────────────────────────────────
-    # NVIDIA LLaMA-3.2-90B Vision is the primary visual intelligence.
-    # HuggingFace is a fast pre-screen only — unreliable for AI-generated art.
-    # Architecture: NVIDIA drives 70%, HF provides 30% supporting signal.
+    # ── 3-Way Ensemble: NVIDIA (50%) + Gemini Flash (30%) + HF (20%) ─────────
+    # NVIDIA LLaMA-90B: primary deep visual analysis
+    # Google Gemini Flash: mandatory cross-check (hackathon requirement)
+    # HuggingFace: fast binary pre-screen (supporting only)
     hf_component = float(hf_score_normalized)
 
-    # Convert NVIDIA verdict to a numeric signal
-    if gemini_verdict == "DEEPFAKE":
-        # NVIDIA says deepfake — use its logprob confidence directly
-        nvidia_signal = gemini_confidence / 100.0 if gemini_confidence else 0.85
-    elif gemini_verdict in ("ELEVATED_RISK", "ANALYSIS_FAILED"):
-        nvidia_signal = 0.65
-    else:  # AUTHENTIC
-        # Invert: low confidence AUTHENTIC = more suspicious
-        nvidia_signal = 1.0 - (gemini_confidence / 100.0) if gemini_confidence else 0.15
+    def _verdict_to_signal(verdict: str, confidence_pct) -> float:
+        """Convert a text verdict + confidence% to a 0-1 threat signal."""
+        if verdict == "DEEPFAKE":
+            return confidence_pct / 100.0 if confidence_pct else 0.82
+        elif verdict in ("ELEVATED_RISK", "ANALYSIS_FAILED"):
+            return 0.60  # uncertain → slightly suspicious
+        else:  # AUTHENTIC
+            return 1.0 - (confidence_pct / 100.0) if confidence_pct else 0.18
 
-    # NVIDIA is primary (70%), HF is secondary pre-screen (30%)
-    # Exception: if HF is very high (>80%) and NVIDIA says AUTHENTIC,
-    # use 50/50 so HF still has a meaningful vote.
-    if gemini_verdict == "DEEPFAKE":
-        hf_weight, nvidia_weight = 0.30, 0.70
-        logger.info(f"[ENSEMBLE] NVIDIA=DEEPFAKE primary. Weights 30/70.")
-    elif gemini_verdict != "DEEPFAKE" and hf_component > 0.80:
-        hf_weight, nvidia_weight = 0.50, 0.50  # High-disagreement: split
-        logger.info(f"[ENSEMBLE] Disagreement: HF={hf_component:.2f} NVIDIA=AUTHENTIC. Split 50/50.")
-    else:
-        hf_weight, nvidia_weight = 0.30, 0.70  # NVIDIA always primary
-        logger.info(f"[ENSEMBLE] NVIDIA primary 30/70. HF={hf_component:.2f} NVIDIA={gemini_verdict}")
+    nvidia_signal  = _verdict_to_signal(gemini_verdict, gemini_confidence)
+    gemini_signal  = _verdict_to_signal(
+        real_gemini_verdict,
+        real_gemini_confidence,
+    )
 
-    ensemble_score = (hf_component * hf_weight) + (nvidia_signal * nvidia_weight)
+    # Weights: NVIDIA 50%, Gemini 30%, HF 20%
+    # If either AI says DEEPFAKE with high confidence, cap HF at 20% max
+    nvidia_w, gemini_w, hf_w = 0.50, 0.30, 0.20
 
-    # Hard floor/ceiling rules:
-    # If NVIDIA explicitly says DEEPFAKE: score can't go below 0.65
-    if gemini_verdict == "DEEPFAKE" and ensemble_score < 0.65:
-        ensemble_score = 0.65
-        logger.info("[ENSEMBLE] Floor applied: NVIDIA=DEEPFAKE, score raised to 0.65 minimum.")
+    ensemble_score = (
+        nvidia_signal  * nvidia_w +
+        gemini_signal  * gemini_w +
+        hf_component   * hf_w
+    )
+
+    # Hard floor: if BOTH AI models say DEEPFAKE, score cannot go below 0.70
+    if gemini_verdict == "DEEPFAKE" and real_gemini_verdict == "DEEPFAKE":
+        ensemble_score = max(ensemble_score, 0.70)
+        logger.info("[ENSEMBLE] Both AI=DEEPFAKE → floor 0.70 applied.")
+    # Soft floor: if either AI says DEEPFAKE, score cannot go below 0.55
+    elif gemini_verdict == "DEEPFAKE" or real_gemini_verdict == "DEEPFAKE":
+        ensemble_score = max(ensemble_score, 0.55)
+        logger.info("[ENSEMBLE] One AI=DEEPFAKE → floor 0.55 applied.")
 
     # Logic Shield: clamp to [0.0, 1.0]
     threat_score_float = max(0.0, min(1.0, ensemble_score))
     threat_score = Decimal(str(round(threat_score_float, 4)))
 
     logger.info(
-        f"[ENSEMBLE] Final: HF={hf_component:.3f}*{hf_weight} + "
-        f"NVIDIA_signal={nvidia_signal:.3f}*{nvidia_weight} = {threat_score_float:.4f} "
-        f"(verdict={gemini_verdict})"
+        f"[ENSEMBLE-3WAY] NVIDIA={nvidia_signal:.3f}*{nvidia_w} + "
+        f"Gemini={gemini_signal:.3f}*{gemini_w} + "
+        f"HF={hf_component:.3f}*{hf_w} = {threat_score_float:.4f}"
     )
 
     result_details = {
@@ -497,12 +531,16 @@ async def create_scan(
         "confidence_level": hf_confidence,
         "model_used": hf_model,
         "processing_time_ms": hf_ms,
-        # ── Tier-2 (NVIDIA NIM) fields — all 5 dashboard slots ────────────
+        # ── Tier-2 (NVIDIA NIM — LLaMA-3.2-90B Vision) ───────────────────
         "gemini_verdict": gemini_verdict,
         "gemini_reasoning": gemini_reasoning,
-        "gemini_model_used": gemini_model_used,   # "meta/llama-3.2-90b-vision-instruct"
-        "gemini_confidence": gemini_confidence,   # float 0-100 from logprobs
-        "gemini_tier": gemini_tier,               # "tier-2" / "tier-1" / "tier-1-fallback"
+        "gemini_model_used": gemini_model_used,
+        "gemini_confidence": gemini_confidence,
+        "gemini_tier": gemini_tier,
+        # ── Tier-3 (Google Gemini Flash) ─────────────────────────────────
+        "real_gemini_verdict": real_gemini_verdict,
+        "real_gemini_reasoning": real_gemini_reasoning,
+        "real_gemini_confidence": real_gemini_confidence,
     }
 
     logger.info(

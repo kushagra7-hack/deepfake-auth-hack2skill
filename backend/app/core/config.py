@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # ── AI APIs ──────────────────────────────────────────────────────────────
     HUGGINGFACE_API_TOKEN: str = Field(..., description="HuggingFace Inference API Token")
     NVIDIA_API_KEY: str = Field(default="", description="NVIDIA NIM API key for Tier-2 analysis")
+    GEMINI_API_KEY: str = Field(default="", description="Google Gemini API key for Tier-3 analysis")
 
     # ── JWT (kept for legacy token parsing if needed) ────────────────────────
     JWT_AUDIENCE: str = "authenticated"
