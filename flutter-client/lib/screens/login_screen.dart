@@ -281,6 +281,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── Left: Form Section ─────────────────────────────────────────────────────
   Widget _buildFormSection() {
+    final width = MediaQuery.of(context).size.width;
+    final hPad = width < 480 ? 24.0 : 56.0;
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
@@ -300,48 +302,53 @@ class _LoginScreenState extends State<LoginScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo row
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [_kPrimary, _kSecondary],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                  LayoutBuilder(builder: (context, logoConstraints) {
+                    return Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [_kPrimary, _kSecondary],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: _kPrimary.withAlpha(50),
+                                  blurRadius: 16,
+                                  spreadRadius: 1),
+                            ],
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                                color: _kPrimary.withAlpha(50),
-                                blurRadius: 16,
-                                spreadRadius: 1),
-                          ],
+                          child: const Icon(Icons.verified_user_outlined,
+                              color: Colors.white, size: 20),
                         ),
-                        child: const Icon(Icons.verified_user_outlined,
-                            color: Colors.white, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      RichText(
-                        text: TextSpan(
-                          style: GoogleFonts.outfit(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: RichText(
+                            overflow: TextOverflow.ellipsis,
+                            text: TextSpan(
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: width < 360 ? 16 : 20,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5,
+                              ),
+                              children: [
+                                const TextSpan(text: 'NEXUS'),
+                                TextSpan(
+                                    text: '_',
+                                    style: const TextStyle(color: _kPrimary)),
+                                const TextSpan(text: 'GATEWAY'),
+                              ],
+                            ),
                           ),
-                          children: [
-                            const TextSpan(text: 'NEXUS'),
-                            TextSpan(
-                                text: '_',
-                                style: const TextStyle(color: _kPrimary)),
-                            const TextSpan(text: 'GATEWAY'),
-                          ],
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  }),
                   const SizedBox(height: 52),
 
                   // Headline
@@ -351,7 +358,7 @@ class _LoginScreenState extends State<LoginScreen>
                         : 'REALITY IS DATA.',
                     style: GoogleFonts.outfit(
                       color: Colors.white,
-                      fontSize: 36,
+                      fontSize: width < 360 ? 28 : 36,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                       height: 1.1,
@@ -433,8 +440,8 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 28),
 
                   // Toggle login ↔ register
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
                     children: [
                       Text(
                         _isRegisterMode
